@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>City Life</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -62,7 +62,29 @@ html,body{margin:0;height:100%;background:#0d0d12;overflow:hidden;font-family:'P
 .mat img{width:16px;height:16px;image-rendering:pixelated}
 .mat.ok{outline:2px solid #3d7a3a}.mat.no{outline:2px solid #7a3030}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,8,14,.55);z-index:50}
-.card{padding:26px 30px;text-align:center;width:min(640px,94vw);line-height:1.9;font-size:10px}
+.card{padding:26px 30px;text-align:center;width:min(640px,94vw);line-height:1.9;font-size:10px;max-height:92vh;overflow:auto;touch-action:pan-y}
+/* ---- phones & tablets ---- */
+html,body{overscroll-behavior:none}
+body.touch{touch-action:none;-webkit-touch-callout:none}
+#panel{touch-action:pan-y}
+#touch{display:none}
+body.touch #touch{display:block}
+#joy{position:fixed;left:calc(16px + env(safe-area-inset-left));bottom:calc(16px + env(safe-area-inset-bottom));width:118px;height:118px;border-radius:50%;background:rgba(20,18,28,.45);border:3px solid rgba(232,220,184,.55);touch-action:none;z-index:25}
+#knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(232,220,184,.75);border:3px solid #000;pointer-events:none}
+#tbtns{position:fixed;right:calc(12px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));display:grid;grid-template-areas:"m q f" "r e e";gap:8px;align-items:center;justify-items:center;z-index:25}
+.tb{font-family:inherit;font-size:8px;width:52px;height:52px;border-radius:50%;border:3px solid #000;background:rgba(58,95,154,.85);color:#fff;touch-action:none;padding:0;-webkit-tap-highlight-color:transparent}
+.tb[data-k=ShiftLeft]{background:rgba(61,122,58,.88)}
+.tb.big{width:74px;height:74px;font-size:18px;background:rgba(217,96,26,.92)}
+.tb.on{filter:brightness(1.45);transform:scale(.94)}
+body.touch #inventory{top:calc(6px + env(safe-area-inset-top));bottom:auto;left:calc(6px + env(safe-area-inset-left));transform:none;flex-wrap:wrap;max-width:calc(100vw - 140px);white-space:normal}
+body.touch .slots{flex-wrap:wrap}
+body.touch .slot{width:30px;height:30px}
+body.touch .slot img{width:20px;height:20px}
+body.touch #toasts{top:auto;bottom:170px}
+body.touch #prompt{bottom:auto;top:calc(50% + 40px)}
+body.touch #tooltip{display:none!important}
+body.touch #panel{max-height:88vh;padding:12px}
+body.touch .btn{padding:10px 11px}
 .card h1{font-size:30px;color:#f2c94c;margin:0 0 6px;text-shadow:4px 4px 0 #000;letter-spacing:2px}
 .card h2{font-size:11px;color:#f26f21;margin:0 0 18px}
 .card p{color:#d8d0e8;margin:0 0 14px}
@@ -80,6 +102,16 @@ html,body{margin:0;height:100%;background:#0d0d12;overflow:hidden;font-family:'P
   <div id="money" class="box"><span class="coin"></span><span id="moneytxt">$0.00</span></div>
   <div id="toasts"></div>
   <div id="prompt" class="box"></div>
+  <div id="touch">
+    <div id="joy"><div id="knob"></div></div>
+    <div id="tbtns">
+      <button class="tb" data-k="KeyM" style="grid-area:m">MAP</button>
+      <button class="tb" data-k="KeyQ" style="grid-area:q">SAFE</button>
+      <button class="tb" data-k="KeyF" style="grid-area:f">USE</button>
+      <button class="tb" data-k="ShiftLeft" style="grid-area:r">RUN</button>
+      <button class="tb big" data-k="KeyE" style="grid-area:e">E</button>
+    </div>
+  </div>
   <div id="inventory" class="box">
     <div class="invgroup"><div class="invlabel">JUNK (KEYS 1-0)</div><div id="junkslots" class="slots"></div></div>
     <div class="invgroup"><div class="invlabel">JOB STUFF</div><div id="jobslots" class="slots"></div></div>
@@ -102,6 +134,7 @@ html,body{margin:0;height:100%;background:#0d0d12;overflow:hidden;font-family:'P
       <b>Q</b><span>Open your safe (cops can't take what's inside)</span>
       <b>M</b><span>City map</span>
       <b>ESC</b><span>Close menus</span>
+      <b>PHONE</b><span>Joystick to walk, RUN to sprint, E to search/talk (hold to build), tap slots to hold items</span>
       <b>COPS</b><span>Don't jaywalk, block cars or dig in trash where they can see. Getting caught = losing all your junk (job stuff is safe).</span>
     </div>
     <button class="btn o" id="btnNew">NEW GAME</button>
@@ -1642,11 +1675,47 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { K[e.code] = false; });
 addEventListener('blur', () => { for (const k in K) K[k] = false; });
 
+// ---- touch controls: a joystick for walking, and buttons that act like the keyboard keys
+let TOUCH = false;
+function enableTouch(){
+  if (TOUCH) return;
+  TOUCH = true; document.body.classList.add('touch');
+  try { resize(); } catch (e) {} // canvas isn't set up yet on first load; resize() runs at startup anyway
+}
+if (matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 900)) enableTouch();
+// any real touch (e.g. tapping NEW GAME) switches the touch controls on
+addEventListener('touchstart', enableTouch, {once: true, passive: true});
+const joy = {active: false, x: 0, y: 0, id: null};
+{
+  const pad = $('joy'), knob = $('knob');
+  const move = e => {
+    const r = pad.getBoundingClientRect(), R = r.width / 2 - 12;
+    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy); if (d > R){ dx *= R / d; dy *= R / d; }
+    joy.x = dx / R; joy.y = dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`;
+  };
+  const end = e => { if (e.pointerId !== joy.id) return; joy.active = false; joy.x = joy.y = 0; knob.style.transform = ''; };
+  pad.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); joy.active = true; joy.id = e.pointerId; pad.setPointerCapture(e.pointerId); move(e); });
+  pad.addEventListener('pointermove', e => { if (joy.active && e.pointerId === joy.id) move(e); });
+  pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+  for (const b of document.querySelectorAll('.tb')){
+    const code = b.dataset.k;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); b.classList.add('on'); dispatchEvent(new KeyboardEvent('keydown', {code})); });
+    const up = () => { if (!b.classList.contains('on')) return; b.classList.remove('on'); dispatchEvent(new KeyboardEvent('keyup', {code})); };
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  // tap anywhere on the city map to close it
+  $('bigmap').addEventListener('click', () => toggleBigMap(false));
+}
+
 // ================= LOOP =================
 const cvs = $('game'), ctx = cvs.getContext('2d');
 let VW = 400, VH = 225, SCALE = 3;
 function resize(){
-  SCALE = Math.max(3, Math.round(innerHeight / 210), Math.ceil(innerWidth / (WPX - 40)));
+  SCALE = TOUCH
+    ? Math.max(2, Math.floor(Math.min(innerWidth, innerHeight) / 130), Math.ceil(innerWidth / (WPX - 40)))
+    : Math.max(3, Math.round(innerHeight / 210), Math.ceil(innerWidth / (WPX - 40)));
   VW = Math.ceil(innerWidth / SCALE); VH = Math.ceil(innerHeight / SCALE);
   cvs.width = VW; cvs.height = VH; cvs.style.width = VW * SCALE + 'px'; cvs.style.height = VH * SCALE + 'px';
   ctx.imageSmoothingEnabled = false;
@@ -1674,13 +1743,14 @@ function updatePlayer(dt){
   let mx = 0, my = 0;
   if (K.KeyA || K.ArrowLeft) mx--; if (K.KeyD || K.ArrowRight) mx++;
   if (K.KeyW || K.ArrowUp) my--; if (K.KeyS || K.ArrowDown) my++;
+  if (joy.active && Math.hypot(joy.x, joy.y) > 0.25){ mx = joy.x; my = joy.y; }
   p.running = !!(K.ShiftLeft || K.ShiftRight);
   if (mx || my){
     const sp = p.running ? 96 : 52, len = Math.hypot(mx, my), vx = mx / len * sp * dt, vy = my / len * sp * dt;
     if (!blockedAt(p.x + vx, p.y)) p.x += vx;
     if (!blockedAt(p.x, p.y + vy)) p.y += vy;
     p.moving = true; p.phase += dt * (p.running ? 15 : 10);
-    p.dir = mx ? (mx < 0 ? 2 : 3) : (my < 0 ? 1 : 0);
+    p.dir = Math.abs(mx) >= Math.abs(my) ? (mx < 0 ? 2 : 3) : (my < 0 ? 1 : 0);
     if (p.running){ p.dust -= dt; if (p.dust <= 0){ p.dust = 0.08; particles.push({x: p.x - mx * 4 + (rnd() - .5) * 4, y: p.y - 1, vx: -mx * 12, vy: -8 - rnd() * 8, g: 0, life: 0.35, col: pick(['#c8c4b8', '#a8a49a']), s: 2}); } }
   } else { p.moving = false; p.phase = 0; }
 }
