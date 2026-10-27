@@ -101,13 +101,13 @@ html,body{margin:0;height:100%;background:#0d0d12;overflow:hidden;font-family:'P
       <b>1-0 / CLICK</b><span>Hold an item in your hand · F to use it</span>
       <b>M</b><span>City map</span>
       <b>ESC</b><span>Close menus</span>
-      <b>COPS</b><span>Don't jaywalk, block cars or dig in trash where they can see. Getting caught = losing all your items!</span>
+      <b>COPS</b><span>Don't jaywalk, block cars or dig in trash where they can see. Getting caught = losing all your junk (job stuff is safe).</span>
     </div>
     <button class="btn o" id="btnNew">NEW GAME</button>
     <button class="btn b" id="btnCont" style="display:none">CONTINUE</button>
   </div>
 </div>
-<div id="busted" class="overlay" style="display:none;pointer-events:none"><div class="bust">BUSTED!<small>The cops took all your stuff.</small></div></div>
+<div id="busted" class="overlay" style="display:none;pointer-events:none"><div class="bust">BUSTED!<small>The cops took all your junk.</small></div></div>
 <div id="win" class="overlay" style="display:none">
   <div class="card box">
     <h1>HOME!</h1>
@@ -966,11 +966,13 @@ function updateCop(n, dt){
 }
 function arrest(cop){
   arrestT = 2.4; closePanel(); player.act = null; player.moving = false;
-  const lost = Object.keys(S.inv).length;
-  S.inv = {}; invDirty = true;
+  // cops confiscate junk only; job materials and tools are safe
+  const junk = Object.keys(S.inv).filter(k => ITEMS[k].cat === 'junk'), lost = junk.length;
+  for (const k of junk) delete S.inv[k];
+  invDirty = true;
   cop.cool = 10; snapToSidewalk(cop); cop.running = false;
   addFloat(cop.x, cop.y - 28, 'YOU\'RE UNDER ARREST!', '#ff6a6a');
-  toast(lost ? 'BUSTED! The cops confiscated all your stuff.' : 'BUSTED! Lucky you had nothing on you.', '#ff6a6a');
+  toast(lost ? 'BUSTED! The cops took your junk. Your job stuff is safe.' : 'BUSTED! Lucky you had no junk on you.', '#ff6a6a');
   const b = $('busted'); b.style.display = 'flex'; setTimeout(() => { b.style.display = 'none'; }, 2200);
   SFX.siren(); save();
 }
