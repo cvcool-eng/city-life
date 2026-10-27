@@ -1,0 +1,1738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City Life</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#f4ecd8;--edge:#e8dcb8;--accent:#f26f21;--good:#8ff06a;--bad:#ff7a6a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0d0d12;overflow:hidden;font-family:'Press Start 2P',monospace;color:var(--ink);user-select:none}
+#game{position:fixed;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges}
+.box{background:rgba(20,18,28,.9);border:3px solid var(--edge);box-shadow:0 0 0 3px #000,5px 5px 0 3px rgba(0,0,0,.45)}
+#hud{display:none}
+#money{position:fixed;top:12px;right:12px;padding:6px 9px;font-size:11px;color:var(--good);text-shadow:2px 2px 0 #000;display:flex;gap:7px;align-items:center}
+#money .coin{width:9px;height:9px;background:#f2c94c;box-shadow:inset -2px -2px 0 #b58a1e,0 0 0 2px #000}
+#money.bump{animation:bump .3s}
+#money.drop{animation:drop .3s}
+@keyframes bump{50%{transform:scale(1.15);color:#fff}}
+@keyframes drop{50%{transform:scale(.92);color:var(--bad)}}
+#bigmap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(8,8,14,.75);z-index:45}
+#bigmapc{display:block;image-rendering:pixelated;image-rendering:crisp-edges;box-shadow:0 0 0 3px #000,6px 6px 0 3px rgba(0,0,0,.5)}
+#inventory{position:fixed;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:3px;align-items:center;background:rgba(20,18,28,.55);border:none;box-shadow:none;white-space:nowrap}
+.invgroup{display:flex;align-items:center}
+.invgroup + .invgroup{border-left:2px solid rgba(232,220,184,.35);padding-left:6px}
+.invlabel{display:none}
+.slots{display:flex;gap:2px}
+.slot{width:22px;height:22px;background:rgba(42,39,53,.75);border:1px solid #4a4560;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.slot img{width:16px;height:16px;image-rendering:pixelated}
+.slot .n{position:absolute;right:1px;bottom:0;font-size:6px;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
+.slot .k{position:absolute;left:1px;top:0;font-size:5px;color:#a8a0c0}
+.slot.sel{border-color:#f2c94c}
+.slot.empty{cursor:default;opacity:.5}
+.slot:hover:not(.empty){border-color:var(--edge);background:#3a3550}
+.invgroup:has(.slots:empty){display:none}
+#prompt{position:fixed;left:50%;bottom:36px;transform:translateX(-50%);font-size:8px;padding:6px 9px;white-space:nowrap;display:none}
+#prompt b{color:#f2c94c}
+#toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none;z-index:20}
+.toast{font-size:6px;padding:4px 6px;border-width:2px;box-shadow:0 0 0 2px #000;line-height:1.5;max-width:300px;text-align:center;animation:tin .18s ease-out;transition:opacity .4s}
+@keyframes tin{from{transform:translateY(-8px);opacity:0}}
+#tooltip{position:fixed;pointer-events:none;font-size:9px;padding:7px 9px;display:none;z-index:40;line-height:1.7}
+#panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,94vw);max-height:84vh;overflow:auto;padding:16px;font-size:10px;line-height:1.7;z-index:30}
+#panel.hidden{display:none}
+.ptitle{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#f2c94c;margin-bottom:10px;gap:10px}
+.psub{color:#b8b0d0;font-size:9px;margin-bottom:10px}
+.pmsg{background:#2c2840;border-left:4px solid #f2c94c;padding:8px 10px;margin-bottom:10px}
+.sec{color:#f26f21;font-size:10px;margin:14px 0 6px}
+.row{display:flex;align-items:center;gap:10px;padding:6px 4px;border-bottom:2px dashed #34304a}
+.row .nm{flex:1}
+.row .nm small{display:block;color:#a8a0c0;font-size:8px}
+.ic{width:28px;height:28px;image-rendering:pixelated;background:#2a2735;padding:2px}
+.btn{font-family:inherit;font-size:9px;background:#3d7a3a;color:#fff;border:none;padding:8px 10px;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),0 0 0 2px #000;white-space:nowrap}
+.btn:hover:not(:disabled){filter:brightness(1.2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.o{background:#d9601a}.btn.b{background:#3a5f9a}.btn.r{background:#9a3a3a}.btn.g{background:#5a5670}
+.x{font-family:inherit;background:#9a3a3a;color:#fff;border:none;padding:6px 9px;cursor:pointer;box-shadow:0 0 0 2px #000;font-size:10px}
+.job{border:2px solid #4a4560;padding:10px;margin-bottom:10px;background:#24212f}
+.job .jt{color:#f2c94c;margin-bottom:4px}
+.mats{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.mat{display:flex;align-items:center;gap:4px;background:#2f2b3e;padding:3px 6px;font-size:8px}
+.mat img{width:16px;height:16px;image-rendering:pixelated}
+.mat.ok{outline:2px solid #3d7a3a}.mat.no{outline:2px solid #7a3030}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,8,14,.55);z-index:50}
+.card{padding:26px 30px;text-align:center;width:min(640px,94vw);line-height:1.9;font-size:10px}
+.card h1{font-size:30px;color:#f2c94c;margin:0 0 6px;text-shadow:4px 4px 0 #000;letter-spacing:2px}
+.card h2{font-size:11px;color:#f26f21;margin:0 0 18px}
+.card p{color:#d8d0e8;margin:0 0 14px}
+.ctl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;text-align:left;margin:0 auto 20px;width:fit-content;font-size:9px}
+.ctl b{color:#f2c94c}
+.card .btn{font-size:11px;padding:12px 16px;margin:4px}
+#busted{background:rgba(10,10,20,.55)}
+.bust{font-size:36px;color:#ff4a4a;text-shadow:4px 4px 0 #000;text-align:center;line-height:1.6}
+.bust small{display:block;font-size:10px;color:#fff}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div id="money" class="box"><span class="coin"></span><span id="moneytxt">$0.00</span></div>
+  <div id="toasts"></div>
+  <div id="prompt" class="box"></div>
+  <div id="inventory" class="box">
+    <div class="invgroup"><div class="invlabel">JUNK (KEYS 1-0)</div><div id="junkslots" class="slots"></div></div>
+    <div class="invgroup"><div class="invlabel">JOB STUFF</div><div id="jobslots" class="slots"></div></div>
+  </div>
+</div>
+<div id="tooltip" class="box"></div>
+<div id="bigmap"><canvas id="bigmapc"></canvas></div>
+<div id="panel" class="box hidden"></div>
+<div id="title" class="overlay">
+  <div class="card box">
+    <h1>CITY LIFE</h1>
+    <h2>FROM THE STREETS TO HOMEOWNER</h2>
+    <p>You've got a beard, a beanie and ten bucks. Dig through the city's trash, sell and trade junk with New Yorkers, pick up construction jobs, buy supplies at Home Depot and build houses. Save up enough skill and build a home of your own.</p>
+    <div class="ctl">
+      <b>W A S D</b><span>Walk</span>
+      <b>SHIFT</b><span>Run</span>
+      <b>E</b><span>Search trash cans / talk & trade / enter shops</span>
+      <b>HOLD E</b><span>Build at your job's lot</span>
+      <b>M</b><span>Toggle minimap</span>
+      <b>ESC</b><span>Close menus</span>
+      <b>COPS</b><span>Don't jaywalk, block cars or dig in trash where they can see. Getting caught = losing all your items!</span>
+    </div>
+    <button class="btn o" id="btnNew">NEW GAME</button>
+    <button class="btn b" id="btnCont" style="display:none">CONTINUE</button>
+  </div>
+</div>
+<div id="busted" class="overlay" style="display:none;pointer-events:none"><div class="bust">BUSTED!<small>The cops took all your stuff.</small></div></div>
+<div id="win" class="overlay" style="display:none">
+  <div class="card box">
+    <h1>HOME!</h1>
+    <h2>YOU BUILT YOUR OWN HOUSE</h2>
+    <p id="winstats"></p>
+    <button class="btn o" id="btnKeep">KEEP PLAYING</button>
+  </div>
+</div>
+<script>
+'use strict';
+// ================= UTILS =================
+const $ = id => document.getElementById(id);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = Math.random;
+const pick = (a, r = rnd) => a[Math.floor(r() * a.length)];
+const rint = (a, b, r = rnd) => a + Math.floor(r() * (b - a + 1));
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const fmt = m => '$' + m.toFixed(2);
+const round2 = m => Math.round(m * 100) / 100;
+function shade(h, a){
+  const n = parseInt(h.slice(1), 16);
+  const r = clamp((n >> 16) + a, 0, 255), g = clamp(((n >> 8) & 255) + a, 0, 255), b = clamp((n & 255) + a, 0, 255);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+function hash(s){ let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return ((h >>> 0) % 10000) / 10000; }
+function weightedPick(ids, wf){ let t = 0; for (const i of ids) t += wf(i); let r = rnd() * t; for (const i of ids){ r -= wf(i); if (r <= 0) return i; } return ids[ids.length - 1]; }
+function fillCircle(g, cx, cy, r, col){ g.fillStyle = col; for (let dy = -r; dy <= r; dy++){ const dx = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - dx, cy + dy, dx * 2 + 1, 1); } }
+function speckle(g, x, y, w, h, r, cols, n){ for (let i = 0; i < n; i++){ g.fillStyle = cols[i % cols.length]; g.fillRect(x + Math.floor(r() * w), y + Math.floor(r() * h), 1, 1); } }
+
+// ================= PIXEL FONT (3x5) =================
+const FONT = {A:'010101111101101',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',F:'111100110100100',G:'011100101101011',H:'101101111101101',I:'111010010010111',J:'001001001101010',K:'101101110101101',L:'100100100100111',M:'101111111101101',N:'110101101101101',O:'010101101101010',P:'110101110100100',Q:'010101101110011',R:'110101110101101',S:'011100010001110',T:'111010010010010',U:'101101101101111',V:'101101101101010',W:'101101111111101',X:'101101010101101',Y:'101101010010010',Z:'111001010100111','0':'111101101101111','1':'010110010010111','2':'110001010100111','3':'110001010001110','4':'101101111001001','5':'111100110001110','6':'011100110101010','7':'111001010010010','8':'010101010101010','9':'010101011001110','+':'000010111010000','-':'000000111000000','$':'011110010011110','.':'000000000000010',':':'000010000010000','!':'010010010000010','?':'110001010000010','/':'001001010100100',"'":'010010000000000',',':'000000000010100','#':'101111101111101','&':'010101010101011'};
+function drawText(g, str, x, y, col, sc = 1, align = 'center', outline = '#000'){
+  str = String(str).toUpperCase();
+  const w = str.length * 4 * sc - sc;
+  const x0 = Math.round(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x);
+  const pass = (c, dx, dy) => {
+    g.fillStyle = c;
+    for (let i = 0; i < str.length; i++){
+      const gl = FONT[str[i]]; if (!gl) continue;
+      for (let j = 0; j < 15; j++) if (gl[j] === '1') g.fillRect(x0 + i * 4 * sc + (j % 3) * sc + dx, y + ((j / 3) | 0) * sc + dy, sc, sc);
+    }
+  };
+  if (outline){ pass(outline, -sc, 0); pass(outline, sc, 0); pass(outline, 0, -sc); pass(outline, 0, sc); }
+  pass(col, 0, 0);
+}
+
+// ================= AUDIO =================
+let AC = null;
+function audioInit(){ if (AC) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+function tone(f, d, type = 'square', v = 0.05, f2 = null, delay = 0){
+  if (!AC) return;
+  const t = AC.currentTime + delay, o = AC.createOscillator(), gn = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(gn); gn.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+}
+const SFX = {
+  pick: () => { tone(660, .07); tone(990, .1, 'square', .045, null, .06); },
+  coin: () => { tone(988, .07); tone(1319, .18, 'square', .045, null, .07); },
+  nope: () => tone(170, .18, 'sawtooth', .04, 110),
+  rummage: () => tone(180 + rnd() * 260, .04, 'triangle', .05),
+  hammer: () => { tone(150, .05, 'square', .06, 70); tone(900, .02, 'triangle', .03); },
+  honk: () => { tone(330, .28, 'square', .04); tone(415, .28, 'square', .035); },
+  buy: () => { tone(523, .06); tone(784, .1, 'square', .045, null, .06); },
+  done: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, 'square', .05, null, i * .1)),
+  siren: () => [0, 1, 2, 3].forEach(i => tone(i % 2 ? 660 : 880, .16, 'square', .035, null, i * .17)),
+  win: () => [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, .22, 'square', .05, null, i * .14)),
+  click: () => tone(800, .03, 'square', .03),
+};
+
+// ================= ITEMS =================
+const PAL = {k:'#1a1a1a',K:'#3a3a3a',w:'#f4f4f4',g:'#9a9a9a',G:'#5a5a5a',r:'#d64040',R:'#8a2020',y:'#f2c94c',Y:'#b58a1e',b:'#4a8ae0',B:'#24447a',n:'#a0683a',N:'#5e3a1c',o:'#f07a1a',p:'#f09ab8',l:'#9ad14a',e:'#3a9a4a',E:'#1f5a2a',s:'#f1c27d',c:'#7ad8ec',t:'#e2cc98',v:'#9a5ae0'};
+const ITEMS = {
+  // ---- junk (from trash / streets) ----
+  pen:      {name:'Pen', val:1, w:14, cat:'junk', icon:['......kk','.....bbk','....bbb.','...bbb..','..bbb...','.gbb....','.gg.....','k.......']},
+  slinky:   {name:'Old Slinky', val:3, w:8, cat:'junk', icon:['..gwwg..','.g....g.','..gwwg..','.g....g.','..gwwg..','.g....g.','..gwwg..','........']},
+  can:      {name:'Soda Can', val:0.25, w:16, cat:'junk', icon:['..gggg..','.gwwwwg.','.rrrrrr.','.rwwrrr.','.rrwwrr.','.rrrrrr.','.gggggg.','........']},
+  bottle:   {name:'Glass Bottle', val:0.5, w:10, cat:'junk', icon:['...EE...','...ee...','...ee...','..eeee..','.eleeee.','.eleeee.','.eeeeee.','..eeee..']},
+  news:     {name:'Newspaper', val:0.5, w:10, cat:'junk', icon:['........','wwwwwwww','wkkkwggw','wwwwwggw','wggwwwww','wggwkkkw','wwwwwwww','........']},
+  sock:     {name:'Smelly Sock', val:0.1, w:9, cat:'junk', icon:['..wwww..','..gggg..','..wwww..','..wtww..','..wwww..','..wwwww.','..wwwtww','...wwwww']},
+  sandwich: {name:'Half Sandwich', val:1, w:8, cat:'junk', icon:['........','....ttt.','...tlllt','..trrrrt','.tyyyyyt','tttttttt','........','........']},
+  duck:     {name:'Rubber Duck', val:2, w:6, cat:'junk', icon:['..yyy...','.yykyo..','.yyyyoo.','..yy....','.yyyyyy.','yyyyyyyy','.yyyyyy.','........']},
+  shoe:     {name:'Old Shoe', val:2, w:6, cat:'junk', icon:['........','..NNN...','..NnN...','..NnnN..','.NnnnnN.','NnnnnnnN','kkkkkkkk','........']},
+  teddy:    {name:'Teddy Bear', val:4, w:4, cat:'junk', icon:['.nn..nn.','.nnnnnn.','.nknnkn.','..nttn..','.nnnnnn.','nnnttnnn','.nnnnnn.','.nn..nn.']},
+  cube:     {name:'Puzzle Cube', val:4, w:3, cat:'junk', icon:['rrryyybb','rrryyybb','rrryyybb','eeewwwoo','eeewwwoo','eeewwwoo','bbbrrryy','bbbrrryy']},
+  watch:    {name:'Broken Watch', val:6, w:4, cat:'junk', icon:['...kk...','...kk...','..gggg..','.gwwwkg.','.gwkwwg.','..gggg..','...kk...','...kk...']},
+  shades:   {name:'Sunglasses', val:5, w:4, cat:'junk', icon:['........','........','kkkkkkkk','kBBkkBBk','kBBkkBBk','.kk..kk.','........','........']},
+  comic:    {name:'Comic Book', val:8, w:3, cat:'junk', icon:['rrrrrrr.','rwwwwwr.','rwbbwwr.','rwbbywr.','rwwyywr.','rwwwwwr.','rrrrrrr.','........']},
+  lottery:  {name:'Lottery Ticket', val:2, w:3, cat:'junk', icon:['........','yyyyyyyy','ywwgwwwy','ywggggwy','ywwgwwwy','yyyyyyyy','........','........']},
+  phone:    {name:'Old Phone', val:12, w:2, cat:'junk', icon:['..kkkk..','..kccK..','..kccK..','..kccK..','..kccK..','..kkkk..','..kgKk..','..kkkk..']},
+  record:   {name:'Vinyl Record', val:15, w:2, cat:'junk', icon:['..kkkk..','.kKkkKk.','kkKrrkKk','kKrkkrkk','kkrkkrKk','kKkrrKkk','.kkKkkk.','..kkkk..']},
+  ring:     {name:'Gold Ring', val:40, w:0.7, cat:'junk', icon:['...cc...','..cwwc..','...yy...','.yy..yy.','.y....y.','.y....y.','.yy..yy.','...yy...']},
+  // ---- Home Depot ----
+  wood:     {name:'Wood Planks', price:6, cat:'mat', icon:['........','nnnnnnnn','NNNNNNNN','tnnnnnnn','NNNNNNNN','nnnnnnnt','NNNNNNNN','........']},
+  screws:   {name:'Box of Screws', price:4, cat:'mat', icon:['..gggg..','..gKKg..','...gg...','...Gg...','...gG...','...Gg...','...gG...','....g...']},
+  nails:    {name:'Box of Nails', price:3, cat:'mat', icon:['.gggg...','..g.....','..g.gggg','..g..g..','..g..g..','..g..g..','.....g..','........']},
+  concrete: {name:'Concrete Mix', price:8, cat:'mat', icon:['........','.tttttt.','tttttttt','tGGGGGGt','tGwwwwGt','tGGGGGGt','tttttttt','.tttttt.']},
+  bricks:   {name:'Bricks', price:7, cat:'mat', icon:['rrRrrrRr','RRRRRRRR','rRrrrRrr','RRRRRRRR','rrRrrrRr','RRRRRRRR','rRrrrRrr','........']},
+  shingles: {name:'Roof Shingles', price:9, cat:'mat', icon:['GGGGGGGG','KGKGKGKG','GGGGGGGG','GKGKGKGK','GGGGGGGG','KGKGKGKG','GGGGGGGG','........']},
+  drywall:  {name:'Drywall Sheet', price:7, cat:'mat', icon:['wwwwwww.','wwwwwwwg','wwwwwwwg','wwwwwwwg','wwwwwwwg','wwwwwwwg','.ggggggg','........']},
+  paint:    {name:'Paint Can', price:10, cat:'mat', icon:['..gggg..','.g....g.','gggggggg','gbbbbbbg','gbwwwwbg','gbbbbbbg','gbbbbbbg','.gggggg.']},
+  window:   {name:'Window', price:18, cat:'mat', icon:['wwwwwwww','wccwwccw','wcwwwccw','wccwwccw','wwwwwwww','wccwwccw','wccwwcww','wwwwwwww']},
+  door:     {name:'Door', price:25, cat:'mat', icon:['.NNNNNN.','.NnnnnN.','.NnNNnN.','.NnnnnN.','.Nnnnyn.','.NnNNnN.','.NnnnnN.','.NNNNNN.']},
+  hammer:   {name:'Hammer', price:12, cat:'tool', icon:['.GGGGG..','.GGGGGG.','...nn...','...nn...','...nn...','...nn...','...NN...','...NN...']},
+  saw:      {name:'Hand Saw', price:15, cat:'tool', icon:['........','nnn.....','n.nggggg','nnnggggg','...gGgGg','........','........','........']},
+};
+const JUNK_IDS = Object.keys(ITEMS).filter(k => ITEMS[k].cat === 'junk');
+const SHOP_IDS = Object.keys(ITEMS).filter(k => ITEMS[k].cat !== 'junk');
+const ICON = {}, ICONURL = {};
+for (const id in ITEMS){
+  const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d');
+  ITEMS[id].icon.forEach((row, y) => { for (let x = 0; x < 8; x++){ const ch = row[x]; if (ch && ch !== '.' && PAL[ch]){ g.fillStyle = PAL[ch]; g.fillRect(x, y, 1, 1); } } });
+  ICON[id] = c; ICONURL[id] = c.toDataURL();
+}
+const rcol = v => v >= 15 ? '#f2c94c' : v >= 6 ? '#6ad0ff' : v >= 2 ? '#9ae06a' : '#cfcfcf';
+
+// ================= JOBS & HOUSES =================
+const JOBS = {
+  doghouse:   {name:'Doghouse', tier:0, mats:{wood:3, nails:1, paint:1}, tools:['hammer'], pay:60, time:5},
+  shed:       {name:'Tool Shed', tier:0, mats:{wood:6, nails:2}, tools:['hammer'], pay:75, time:6},
+  cabin:      {name:'Tiny Cabin', tier:1, mats:{wood:10, screws:2, shingles:2, door:1}, tools:['hammer','saw'], pay:210, time:8},
+  cottage:    {name:'Garden Cottage', tier:1, mats:{wood:6, bricks:4, shingles:2, window:1, door:1}, tools:['hammer','saw'], pay:240, time:9},
+  family:     {name:'Family House', tier:2, mats:{concrete:4, wood:12, bricks:6, drywall:4, screws:3, shingles:4, window:2, door:1, paint:2}, tools:['hammer','saw'], pay:560, time:12},
+  brownstone: {name:'Brownstone', tier:2, mats:{concrete:6, bricks:12, wood:8, drywall:5, screws:4, window:3, door:1, paint:2}, tools:['hammer','saw'], pay:620, time:12},
+  home:       {name:'YOUR OWN HOME', tier:3, mats:{concrete:5, wood:12, bricks:8, drywall:5, screws:3, shingles:4, window:2, door:1, paint:2}, tools:['hammer','saw'], pay:0, time:14},
+};
+const CLIENTS = ['Mrs. Alvarez','Mr. Chen','The Johnsons','Dr. Patel','Old Sal','Mrs. Kowalski','Big Tony','Ms. Okafor','The Nguyens','Coach Murphy','Grandma Rosa','Mr. Goldberg','The Romanos','Ms. Jackson'];
+const HOUSES = {
+  doghouse:   {w:30, h:40, fh:18, wall:'#c0392b', roof:'#5a3a2a', tex:'planks', door:'arch', win:0},
+  shed:       {w:42, h:58, fh:26, wall:'#8b5a2b', roof:'#4a4038', tex:'planks', door:'double', win:0},
+  cabin:      {w:56, h:70, fh:30, wall:'#8a5a30', roof:'#3f5a3a', tex:'logs', door:'single', win:2},
+  cottage:    {w:56, h:72, fh:32, wall:'#ece6d6', roof:'#a8382f', tex:'siding', door:'single', win:2, chimney:1, flowers:1},
+  family:     {w:62, h:78, fh:42, wall:'#6c8cba', roof:'#44444e', tex:'siding', door:'single', win:2, floors:2, chimney:1},
+  brownstone: {w:60, h:78, fh:48, wall:'#7a4a32', roof:'#3b3b3e', tex:'brick', door:'stoop', win:2, floors:2, flat:1},
+  home:       {w:62, h:78, fh:42, wall:'#e8c86a', roof:'#2f6a4a', tex:'siding', door:'red', win:2, floors:2, chimney:1, flowers:1},
+};
+
+// ================= MAP =================
+// Every new game rolls a new city: random street spacing, merged superblocks,
+// a carved-up coastline and randomly placed landmarks.
+const T = 16;
+let MAP_SEED = 0;
+try { MAP_SEED = +localStorage.getItem('citylife_seed') || 0; } catch (e) {}
+if (!MAP_SEED){ MAP_SEED = 1 + Math.floor(Math.random() * 1e9); try { localStorage.setItem('citylife_seed', MAP_SEED); } catch (e) {} }
+const NC = 10, NR = 8;
+const LAYOUT = (() => {
+  const r = mulberry32(MAP_SEED);
+  const colW = [], rowH = [], colX = [0], rowY = [0];
+  for (let i = 0; i < NC; i++) colW.push(rint(5, 15, r));
+  for (let j = 0; j < NR; j++) rowH.push(rint(6, 12, r));
+  // guarantee room for the big store and the building lots
+  colW[rint(3, NC - 4, r)] = rint(12, 15, r);
+  for (let k = 0; k < 3; k++) rowH[rint(1, NR - 2, r)] = rint(8, 11, r);
+  for (let i = 0; i < NC; i++) colX.push(colX[i] + colW[i] + 5);
+  for (let j = 0; j < NR; j++) rowY.push(rowY[j] + rowH[j] + 5);
+  return {colW, rowH, colX, rowY};
+})();
+const MW = LAYOUT.colX[NC] + 3, MH = LAYOUT.rowY[NR] + 3, WPX = MW * T, HPX = MH * T;
+const ROAD = 0, SIDE = 1, CROSS = 2, BUILD = 3, GRASS = 4, DIRT = 5, WATER = 6, PATH = 7, PLOT = 8, SAND = 9;
+const tiles = new Uint8Array(MW * MH), solid = new Uint8Array(MW * MH), crossV = new Uint8Array(MW * MH);
+// which lane of a road strip a column/row sits in (0..2), or -1 if not a road strip
+const vStrip = new Int8Array(MW).fill(-1), hStrip = new Int8Array(MH).fill(-1);
+for (const x0 of LAYOUT.colX) for (let k = 0; k < 3; k++) vStrip[x0 + k] = k;
+for (const y0 of LAYOUT.rowY) for (let k = 0; k < 3; k++) hStrip[y0 + k] = k;
+const tAt = (x, y) => (x < 0 || y < 0 || x >= MW || y >= MH) ? -1 : tiles[y * MW + x];
+const setT = (x, y, t) => { tiles[y * MW + x] = t; };
+const buildings = [], lots = [], doors = [], cans = [], props = [], sideTiles = [], itemTiles = [];
+const SHOP_NAMES = ['DELI','PIZZA','BODEGA','CAFE','BAGELS','DINER','BOOKS','LAUNDRY','TACOS','DONUTS','NAILS','HARDWARE'];
+const WALLS = {brick:'#9a4a3a', brown:'#7a4e3a', gray:'#8a8a90', glass:'#5a7a9a', tan:'#c4a57a', cream:'#d8d0b8'};
+const ROOFS = ['#4a4a50','#55504a','#3e4248','#5a5048','#474450'];
+const AWNINGS = ['#c0392b','#27ae60','#2980b9','#8e44ad','#d35400','#16a085'];
+const CAR_COLS = ['#c0392b','#2980b9','#ecf0f1','#2c3e50','#7f8c8d','#16a085','#8e44ad'];
+let START = {x: 0, y: 0};
+
+function addBuilding(x, y, w, h, special, r){
+  const style = pick(Object.keys(WALLS), r);
+  const b = {x, y, w, h, f: rint(2, Math.max(2, Math.min(6, h - 3)), r), style, special, wall: shade(WALLS[style], rint(-12, 12, r)), roof: pick(ROOFS, r),
+    ground: 'plain', sign: null, awning: pick(AWNINGS, r), tower: false, fire: false, seed: r()};
+  if (!special){
+    const g = r();
+    if (g < 0.45){ const nm = pick(SHOP_NAMES, r); if (nm.length * 4 + 6 <= w * T - 6){ b.ground = 'shop'; b.sign = nm; } }
+    else if (g < 0.75 && (style === 'brick' || style === 'brown')) b.ground = 'stoop';
+    b.tower = style !== 'glass' && w >= 2 && r() < 0.35;
+    b.fire = (style === 'brick' || style === 'brown' || style === 'tan') && b.f >= 3 && w >= 3 && r() < 0.6;
+  }
+  if (special === 'depot'){ b.f = 4; b.wall = '#d6d0c2'; b.roof = '#a4a4a2'; }
+  if (special === 'job'){ b.f = 3; b.wall = '#4f6d8f'; }
+  if (special === 'pawn'){ b.f = 3; b.wall = '#6a2e2a'; b.style = 'brick'; }
+  for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) setT(xx, yy, BUILD);
+  buildings.push(b);
+  if (special){
+    const dx = x + Math.floor(w / 2);
+    const label = {depot:'Enter <b>HOME DEPOT</b>', job:'Enter <b>JOB CENTER</b>', pawn:'Enter <b>PAWN SHOP</b>'}[special];
+    doors.push({kind: special, x: dx * T + (w % 2 ? 8 : 0), y: (y + h) * T + 6, label});
+  }
+  return b;
+}
+
+function genCityBlock(x0, y0, w, h, special, r){
+  let x = x0, rem = w, first = true;
+  while (rem > 0){
+    if (!first && rem >= 6 && r() < 0.14){
+      // alley: a walkable gap between buildings, usually with trash in it
+      for (let y = y0; y < y0 + h; y++) setT(x, y, SIDE);
+      if (r() < 0.4) cans.push({x: x * T + 8, y: (y0 + rint(1, h - 2, r)) * T + 10, cool: 0, shake: 0, kind: r() < 0.5 ? 'bags' : 'can'});
+      x++; rem--; continue;
+    }
+    let bw;
+    if (first && special) bw = Math.min(rem, special === 'job' ? 5 : 4);
+    else { bw = Math.min(rem, rint(2, 7, r)); if (rem - bw === 1) bw = bw > 2 ? bw - 1 : rem; }
+    addBuilding(x, y0, bw, h, first ? special : null, r);
+    first = false; x += bw; rem -= bw;
+  }
+}
+
+function genPark(x0, y0, w, h, r){
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) setT(x, y, GRASS);
+  const py = y0 + (h >> 1), pxc = x0 + (w >> 1);
+  for (let x = x0; x < x0 + w; x++) setT(x, py, PATH);
+  for (let y = y0; y < y0 + h; y++) setT(pxc, y, PATH);
+  if (w >= 8 && h >= 6){
+    const pw = Math.max(2, Math.min(x0 + w - pxc - 3, w >> 2)), ph = Math.max(2, Math.min(py - y0 - 2, h >> 2));
+    const wx = x0 + w - 1 - pw, wy = y0 + 1;
+    for (let y = wy; y < wy + ph; y++) for (let x = wx; x < wx + pw; x++) if (tAt(x, y) === GRASS) setT(x, y, WATER);
+  }
+  const nTrees = Math.floor(w * h / 8);
+  for (let k = 0, tries = 0; k < nTrees && tries < 200; tries++){
+    const x = rint(x0, x0 + w - 1, r), y = rint(y0, y0 + h - 1, r);
+    if (tAt(x, y) !== GRASS || solid[y * MW + x]) continue;
+    if ([[1,0],[-1,0],[0,1],[0,-1]].some(([dx, dy]) => tAt(x + dx, y + dy) === PATH)) continue;
+    props.push({type:'tree', x: x * T + 8, y: y * T + 14, v: r()}); solid[y * MW + x] = 1; k++;
+  }
+  for (let k = 0, tries = 0; k < Math.max(2, w >> 3) && tries < 40; tries++){
+    const x = rint(x0 + 1, x0 + w - 2, r);
+    if (tAt(x, py - 1) !== GRASS || solid[(py - 1) * MW + x] || Math.abs(x - pxc) < 2) continue;
+    props.push({type:'bench', x: x * T + 8, y: (py - 1) * T + 14}); k++;
+  }
+  cans.push({x: (pxc + 1) * T + 6, y: (py - 1) * T + 13, cool: 0, shake: 0, kind: 'can'});
+  if (h > 6) cans.push({x: (pxc - 1) * T + 10, y: (py + 2) * T + 10, cool: 0, shake: 0, kind: 'can'});
+}
+
+function genLots(x0, y0, w, h){
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) setT(x, y, GRASS);
+  const n = Math.min(3, Math.floor(w / 4)), ox = x0 + ((w - n * 4) >> 1), ly = y0 + h - 8;
+  for (let i = 0; i < n; i++){
+    for (let y = ly; y < ly + 8; y++) for (let x = ox + i * 4; x < ox + i * 4 + 4; x++) setT(x, y, DIRT);
+    lots.push({id: lots.length + 1, x: ox + i * 4, y: ly, state: 'empty', style: null, owner: null, progress: 0});
+  }
+}
+
+function genParking(x0, y0, w, h, r){
+  for (let y = y0; y < y0 + h; y++){
+    const stall = (y - y0) % 4 < 2;
+    for (let x = x0; x < x0 + w; x++) setT(x, y, stall ? PLOT : ROAD);
+  }
+  for (let y = y0; y + 1 < y0 + h; y += 4) for (let x = x0; x < x0 + w; x++){
+    if (r() < 0.55){
+      props.push({type:'pcar', x: x * T + 8, y: (y + 1) * T + 4, car: {horiz: false, dir: r() < 0.5 ? 1 : -1, lane: x * T + 8, pos: (y + 1) * T, col: pick(CAR_COLS, r), taxi: r() < 0.15}});
+      solid[y * MW + x] = 1; solid[(y + 1) * MW + x] = 1;
+    }
+  }
+}
+
+function genMap(){
+  const r = mulberry32(MAP_SEED * 7 + 3);
+  const {colW, rowH, colX, rowY} = LAYOUT;
+  const ci = (i, j) => j * NC + i;
+  const kind = new Array(NC * NR).fill('city'), group = new Array(NC * NR).fill(-1);
+  const center = (i, j) => i >= 3 && i <= NC - 4 && j >= 2 && j <= NR - 3;
+  // ---- coastline: knock out random edge cells, and carve a couple of bays inward
+  for (let j = 0; j < NR; j++) for (let i = 0; i < NC; i++)
+    if ((i === 0 || j === 0 || i === NC - 1 || j === NR - 1) && r() < 0.32) kind[ci(i, j)] = 'water';
+  for (let b = 0; b < 2; b++){
+    let i = r() < 0.5 ? (r() < 0.5 ? 0 : NC - 1) : rint(0, NC - 1, r), j = (i === 0 || i === NC - 1) ? rint(0, NR - 1, r) : (r() < 0.5 ? 0 : NR - 1);
+    for (let s = 0; s < 3; s++){
+      if (center(i, j)) break;
+      kind[ci(i, j)] = 'water';
+      if (i === 0) i++; else if (i === NC - 1) i--; else if (j === 0) j++; else j--;
+    }
+  }
+  const free = (i, j) => i >= 0 && j >= 0 && i < NC && j < NR && kind[ci(i, j)] === 'city' && group[ci(i, j)] < 0;
+  const blocks = [];
+  const addBlock = (i0, j0, i1, j1, k, special = null) => {
+    const id = blocks.length;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++){ group[ci(i, j)] = id; kind[ci(i, j)] = k; }
+    blocks.push({i0, j0, i1, j1, kind: k, special});
+  };
+  const pickCell = (ok) => { const c = []; for (let j = 0; j < NR; j++) for (let i = 0; i < NC; i++) if (free(i, j) && ok(i, j)) c.push([i, j]); return c.length ? pick(c, r) : null; };
+  // ---- a big central park (2x2 cells)
+  { const c = pickCell((i, j) => center(i, j) && free(i + 1, j) && free(i, j + 1) && free(i + 1, j + 1)); if (c) addBlock(c[0], c[1], c[0] + 1, c[1] + 1, 'park'); }
+  // ---- landmarks
+  const job = pickCell((i, j) => center(i, j) && colW[i] >= 6) || pickCell(() => true);
+  addBlock(job[0], job[1], job[0], job[1], 'city', 'job');
+  const pawn = pickCell((i, j) => Math.abs(i - job[0]) + Math.abs(j - job[1]) <= 3 && colW[i] >= 5) || pickCell(() => true);
+  addBlock(pawn[0], pawn[1], pawn[0], pawn[1], 'city', 'pawn');
+  const depot = pickCell((i, j) => colW[i] >= 12 && rowH[j] >= 8) || pickCell((i, j) => colW[i] >= 10 && rowH[j] >= 7) || pickCell(() => true);
+  addBlock(depot[0], depot[1], depot[0], depot[1], 'depot');
+  for (let k = 0; k < 3; k++){ const c = pickCell((i, j) => colW[i] >= 8 && rowH[j] >= 8 && Math.abs(i - job[0]) + Math.abs(j - job[1]) <= 6); if (c) addBlock(c[0], c[1], c[0], c[1], 'lots'); }
+  for (let k = 0; k < 2; k++){ const c = pickCell(() => true); if (c) addBlock(c[0], c[1], c[0], c[1], 'park'); }
+  for (let k = 0; k < 3; k++){ const c = pickCell((i, j) => colW[i] >= 4); if (c) addBlock(c[0], c[1], c[0], c[1], 'parking'); }
+  // ---- superblocks: merge random neighbors so streets dead-end and T into each other
+  for (let j = 0; j < NR; j++) for (let i = 0; i < NC; i++){
+    if (!free(i, j)) continue;
+    const q = r();
+    if (q < 0.18 && free(i + 1, j)) addBlock(i, j, i + 1, j, 'city');
+    else if (q < 0.3 && free(i, j + 1)) addBlock(i, j, i, j + 1, 'city');
+    else addBlock(i, j, i, j, 'city');
+  }
+  // ---- paint water cells, then each block
+  for (let j = 0; j < NR; j++) for (let i = 0; i < NC; i++) if (kind[ci(i, j)] === 'water')
+    for (let y = rowY[j] + 3; y < rowY[j + 1]; y++) for (let x = colX[i] + 3; x < colX[i + 1]; x++) setT(x, y, WATER);
+  for (const b of blocks){
+    const sx = colX[b.i0] + 3, sy = rowY[b.j0] + 3, ex = colX[b.i1 + 1] - 1, ey = rowY[b.j1 + 1] - 1;
+    for (let y = sy; y <= ey; y++) for (let x = sx; x <= ex; x++) setT(x, y, SIDE);
+    const x0 = sx + 1, y0 = sy + 1, w = ex - sx - 1, h = ey - sy - 1;
+    if (b.kind === 'city') genCityBlock(x0, y0, w, h, b.special, r);
+    else if (b.kind === 'depot') addBuilding(x0, y0, w, h, 'depot', r);
+    else if (b.kind === 'park') genPark(x0, y0, w, h, r);
+    else if (b.kind === 'lots') genLots(x0, y0, w, h);
+    else if (b.kind === 'parking') genParking(x0, y0, w, h, r);
+    // street furniture on the sidewalk ring
+    for (let x = sx + 2; x < ex - 1; x += rint(5, 8, r)) props.push({type:'lamp', x: x * T + 8, y: ey * T + 14});
+    for (let x = sx + 4; x < ex - 1; x += rint(7, 10, r)) props.push({type:'lamp', x: x * T + 8, y: sy * T + 4});
+    props.push({type:'hydrant', x: rint(sx + 2, ex - 2, r) * T + 8, y: sy * T + 6});
+    const used = [];
+    const nCans = w >= 14 ? rint(1, 2, r) : (r() < 0.55 ? 1 : 0);
+    for (let k = 0, tries = 0; k < nCans && tries < 40; tries++){
+      const onBottom = k % 3 !== 2, xx = rint(sx + 1, ex - 1, r);
+      if (used.some(u => Math.abs(u - xx) < 3)) continue;
+      used.push(xx);
+      cans.push({x: xx * T + 8, y: onBottom ? ey * T + 6 : sy * T + 13, cool: 0, shake: 0, kind: r() < 0.3 ? 'bags' : 'can'});
+      k++;
+    }
+  }
+  // ---- streets that only touch water turn into water (that's what makes the coastline ragged)
+  const land = t => t !== ROAD && t !== WATER && t !== CROSS && t !== -1;
+  const drown = [];
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++){
+    if (tAt(x, y) !== ROAD || vStrip[x] < 0 && hStrip[y] < 0) continue;
+    let near = false;
+    for (let dy = -3; dy <= 3 && !near; dy++) for (let dx = -3; dx <= 3; dx++) if (land(tAt(x + dx, y + dy))){ near = true; break; }
+    if (!near) drown.push(y * MW + x);
+  }
+  for (const i of drown) tiles[i] = WATER;
+  // ---- beaches: a strip of sand between the city and the ocean (park ponds stay as they are)
+  const ocean = new Uint8Array(MW * MH);
+  for (let j = 0; j < NR; j++) for (let i = 0; i < NC; i++) if (kind[ci(i, j)] === 'water')
+    for (let y = rowY[j] + 3; y < rowY[j + 1]; y++) for (let x = colX[i] + 3; x < colX[i + 1]; x++) ocean[y * MW + x] = 1;
+  for (const i of drown) ocean[i] = 1;
+  const beach = [];
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++){
+    if (!ocean[y * MW + x]) continue;
+    let shore = false;
+    for (let dy = -2; dy <= 2 && !shore; dy++) for (let dx = -2; dx <= 2; dx++){
+      const t = tAt(x + dx, y + dy);
+      if (t !== -1 && t !== WATER){ shore = true; break; }
+    }
+    if (shore) beach.push(y * MW + x);
+  }
+  for (const i of beach){
+    tiles[i] = SAND;
+    if (r() < 0.035) props.push({type:'umbrella', x: (i % MW) * T + 8, y: ((i / MW) | 0) * T + 12, col: pick(['#e84393', '#f2c94c', '#2980b9', '#27ae60', '#e74c3c'], r)});
+  }
+  // ---- crosswalks wherever two sidewalk corners face each other across a street
+  const corner = (x, y) => tAt(x, y) === SIDE && ((tAt(x, y - 1) === ROAD || tAt(x, y + 1) === ROAD) && (tAt(x - 1, y) === ROAD || tAt(x + 1, y) === ROAD));
+  for (let y = 0; y < MH; y++) for (let x = 0; x + 4 < MW; x++)
+    if (vStrip[x + 1] === 0 && corner(x, y) && corner(x + 4, y) && [1, 2, 3].every(k => tAt(x + k, y) === ROAD))
+      for (let k = 1; k <= 3; k++){ setT(x + k, y, CROSS); crossV[y * MW + x + k] = 1; }
+  for (let x = 0; x < MW; x++) for (let y = 0; y + 4 < MH; y++)
+    if (hStrip[y + 1] === 0 && corner(x, y) && corner(x, y + 4) && [1, 2, 3].every(k => tAt(x, y + k) === ROAD))
+      for (let k = 1; k <= 3; k++) setT(x, y + k, CROSS);
+  for (let i = 0; i < tiles.length; i++){
+    if (tiles[i] === BUILD || tiles[i] === WATER) solid[i] = 1;
+    if (tiles[i] === SIDE) sideTiles.push(i);
+    if ((tiles[i] === SIDE || tiles[i] === PATH || tiles[i] === GRASS || tiles[i] === SAND) && !solid[i]) itemTiles.push(i);
+  }
+  // the hobo's cardboard home: on the sidewalk just east of the Job Center
+  const jb = buildings.find(b => b.special === 'job');
+  const sx = jb.x + jb.w + 1, sy = jb.y + jb.h;
+  START = {x: sx * T + 8, y: sy * T + 12};
+  props.push({type:'box', x: sx * T + 24, y: sy * T + 9});
+}
+
+// ================= STATIC MAP RENDER =================
+const mapC = document.createElement('canvas'); mapC.width = WPX; mapC.height = HPX;
+function drawTile(g, x, y, r){
+  const X = x * T, Y = y * T, t = tAt(x, y);
+  const isRoadish = tt => tt === ROAD || tt === CROSS;
+  if (t === PLOT){
+    g.fillStyle = '#44444c'; g.fillRect(X, Y, T, T);
+    speckle(g, X, Y, T, T, r, ['#3c3c44', '#4c4c54'], 8);
+    g.fillStyle = '#d8d8d0'; g.fillRect(X, Y + (tAt(x, y - 1) === PLOT ? 0 : 2), 1, tAt(x, y - 1) === PLOT ? 14 : 14);
+  } else if (t === ROAD || t === CROSS){
+    g.fillStyle = '#3b3b42'; g.fillRect(X, Y, T, T);
+    speckle(g, X, Y, T, T, r, ['#34343a', '#45454c', '#3f3f46'], 12);
+    if (t === CROSS){
+      g.fillStyle = '#e4e4dc';
+      if (crossV[y * MW + x]){ g.fillRect(X + 2, Y + 1, 4, 14); g.fillRect(X + 10, Y + 1, 4, 14); }
+      else { g.fillRect(X + 1, Y + 2, 14, 4); g.fillRect(X + 1, Y + 10, 14, 4); }
+    } else if (r() < 0.012){ fillCircle(g, X + 8, Y + 8, 4, '#2c2c30'); fillCircle(g, X + 8, Y + 8, 3, '#47474e'); }
+  } else if (t === SIDE){
+    g.fillStyle = '#aba79e'; g.fillRect(X, Y, T, T);
+    g.fillStyle = '#9c988f'; g.fillRect(X, Y, T, 1); g.fillRect(X, Y, 1, T);
+    speckle(g, X, Y, T, T, r, ['#a09c93', '#b4b0a7'], 6);
+    g.fillStyle = '#7e7a72';
+    if (isRoadish(tAt(x, y - 1))) g.fillRect(X, Y, T, 2);
+    if (isRoadish(tAt(x - 1, y))) g.fillRect(X, Y, 2, T);
+    if (isRoadish(tAt(x + 1, y))) g.fillRect(X + T - 2, Y, 2, T);
+    if (isRoadish(tAt(x, y + 1))){ g.fillRect(X, Y + T - 3, T, 3); g.fillStyle = '#5e5a54'; g.fillRect(X, Y + T - 1, T, 1); }
+  } else if (t === GRASS){
+    g.fillStyle = '#4e9a3c'; g.fillRect(X, Y, T, T); speckle(g, X, Y, T, T, r, ['#5aae46', '#438a33', '#62b84e'], 18);
+    if (r() < 0.15){ g.fillStyle = pick(['#f2e05a', '#f0f0f0', '#e86a8a'], r); g.fillRect(X + rint(2, 13, r), Y + rint(2, 13, r), 1, 1); }
+  } else if (t === PATH){
+    g.fillStyle = '#cbb58c'; g.fillRect(X, Y, T, T); speckle(g, X, Y, T, T, r, ['#b8a27a', '#d8c49c'], 10);
+  } else if (t === DIRT){
+    g.fillStyle = '#8d6b45'; g.fillRect(X, Y, T, T); speckle(g, X, Y, T, T, r, ['#7a5a38', '#9c7a52', '#6e5030'], 16);
+  } else if (t === SAND){
+    g.fillStyle = '#e6d197'; g.fillRect(X, Y, T, T); speckle(g, X, Y, T, T, r, ['#d8c084', '#f2e0ac', '#cdb478'], 14);
+  } else if (t === WATER){
+    g.fillStyle = '#3a78c8'; g.fillRect(X, Y, T, T); speckle(g, X, Y, T, T, r, ['#5a98e0', '#3068b0'], 10);
+    // foamy shoreline against sand, darker bank everywhere else
+    const edge = (tt, x0, y0, w, h) => { if (tt === WATER) return; g.fillStyle = tt === SAND ? '#d8eef8' : '#2a5a9a'; g.fillRect(x0, y0, w, h); };
+    edge(tAt(x, y - 1), X, Y, T, 3); edge(tAt(x - 1, y), X, Y, 2, T); edge(tAt(x + 1, y), X + T - 2, Y, 2, T); edge(tAt(x, y + 1), X, Y + T - 2, T, 2);
+    if (tAt(x, y - 1) === SAND){ g.fillStyle = '#8cc4ec'; g.fillRect(X + 2, Y + 4, 5, 1); g.fillRect(X + 9, Y + 5, 4, 1); }
+    g.fillStyle = '#9ad0f0'; g.fillRect(X + 4, Y + 8, 4, 1);
+  }
+}
+
+function drawBuilding(g, b){
+  const r = mulberry32(Math.floor(b.seed * 1e9));
+  const X = b.x * T, Y = b.y * T, W = b.w * T, H = b.h * T, F = b.f * T, RH = H - F;
+  const wall = b.wall, wallD = shade(wall, -30), wallL = shade(wall, 24);
+  // ---- roof
+  g.fillStyle = b.roof; g.fillRect(X, Y, W, RH);
+  speckle(g, X, Y, W, RH, r, [shade(b.roof, -10), shade(b.roof, 10)], (W * RH) / 30);
+  g.fillStyle = wallL; g.fillRect(X, Y, W, 3); g.fillRect(X, Y, 3, RH); g.fillRect(X + W - 3, Y, 3, RH);
+  g.fillStyle = wall; g.fillRect(X, Y + RH - 4, W, 4);
+  g.fillStyle = shade(wall, 40); g.fillRect(X, Y + RH - 4, W, 1);
+  g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(X + 3, Y + 3, W - 6, 2); g.fillRect(X + 3, Y + 3, 2, RH - 7);
+  // roof clutter
+  if (b.special === 'depot'){
+    for (let i = 0; i < 6; i++) drawAC(g, X + 14 + i * 28, Y + 14 + (i % 2) * 22);
+  } else {
+    const n = rint(0, 2, r);
+    for (let i = 0; i < n; i++) drawAC(g, X + 6 + Math.floor(r() * (W - 20)), Y + 8 + Math.floor(r() * (RH - 22)));
+    if (r() < 0.6){ g.fillStyle = '#2a2a2e'; g.fillRect(X + 6 + Math.floor(r() * (W - 14)), Y + 8 + Math.floor(r() * (RH - 16)), 4, 4); }
+    if (b.tower) drawWaterTower(g, X + 6 + Math.floor(r() * Math.max(1, W - 24)), Y + 6);
+  }
+  // ---- facade
+  const FY = Y + RH, GY = FY + F - 16;
+  g.fillStyle = wall; g.fillRect(X, FY, W, F);
+  if (b.style === 'brick' || b.style === 'brown'){
+    g.fillStyle = shade(wall, -16);
+    for (let yy = FY + 3, row = 0; yy < FY + F; yy += 4, row++){
+      g.fillRect(X, yy, W, 1);
+      for (let xx = X + (row % 2 ? 4 : 0); xx < X + W; xx += 8) g.fillRect(xx, yy - 3, 1, 3);
+    }
+  } else if (b.style === 'glass'){
+    g.fillStyle = '#4a6a8a'; g.fillRect(X, FY, W, F);
+    g.fillStyle = '#7a9aba';
+    for (let xx = X; xx < X + W; xx += 8) g.fillRect(xx, FY, 1, F);
+    for (let yy = FY; yy < FY + F; yy += 10) g.fillRect(X, yy, W, 1);
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    for (let i = 0; i < 4; i++){ const sx = X + Math.floor(r() * W); for (let k = 0; k < 10; k++) g.fillRect(sx + k, FY + 2 + k, 2, 1); }
+  } else {
+    g.fillStyle = shade(wall, -10);
+    for (let yy = FY + 13; yy < FY + F - 16; yy += 13) g.fillRect(X, yy, W, 1);
+  }
+  g.fillStyle = wallD; g.fillRect(X, FY, W, 2);
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(X, Y, 1, H);
+
+  if (b.special === 'depot') return drawDepotFront(g, b, X, FY, W, F);
+
+  // windows
+  const winBottom = (b.ground === 'shop' || b.special) ? GY - 11 : GY - 1;
+  if (b.style !== 'glass'){
+    const n = Math.floor((W - 6) / 12), sx0 = X + Math.floor((W - n * 12) / 2) + 3;
+    const winRows = [];
+    for (let wy = FY + 5; wy + 10 <= winBottom; wy += 13) winRows.push(wy);
+    for (const wy of winRows) for (let i = 0; i < n; i++){
+      const wx = sx0 + i * 12;
+      g.fillStyle = wallD; g.fillRect(wx - 1, wy - 1, 8, 11);
+      const lit = r() < 0.25;
+      g.fillStyle = lit ? '#f2d27a' : '#26324a'; g.fillRect(wx, wy, 6, 9);
+      g.fillStyle = lit ? '#d8b860' : '#3a4a68'; g.fillRect(wx, wy + 4, 6, 1);
+      if (!lit){ g.fillStyle = '#4a5a7a'; g.fillRect(wx + 1, wy + 1, 1, 2); }
+      if (b.special === 'pawn'){ g.fillStyle = '#1a1a1a'; g.fillRect(wx + 1, wy, 1, 9); g.fillRect(wx + 4, wy, 1, 9); }
+      g.fillStyle = wallL; g.fillRect(wx - 1, wy + 9, 8, 1);
+    }
+    if (b.fire && winRows.length >= 2 && n >= 2){
+      const fx = sx0 - 3, fw = 22;
+      g.fillStyle = '#161616';
+      winRows.forEach((wy, i) => {
+        g.fillRect(fx, wy + 10, fw, 1); g.fillRect(fx, wy + 6, fw, 1);
+        for (let k = 0; k <= fw; k += 4) g.fillRect(fx + k, wy + 6, 1, 5);
+        if (i < winRows.length - 1) for (let k = 0; k < 13; k++) g.fillRect(fx + fw - 4 - Math.floor(k * 0.8), wy + 11 + k, 2, 1);
+      });
+    }
+  }
+  // ground floor
+  const cx = X + Math.floor(W / 2);
+  if (b.special === 'job'){
+    signBoard(g, cx, GY - 10, 'JOB CENTER', '#f2c94c', '#1a1a1a');
+    g.fillStyle = '#2a3a4a'; g.fillRect(X + 4, GY + 2, W - 8, 14);
+    g.fillStyle = '#8ab8d8'; g.fillRect(X + 5, GY + 3, W - 10, 12);
+    g.fillStyle = '#2a3a4a'; for (let xx = X + 14; xx < X + W - 6; xx += 12) g.fillRect(xx, GY + 3, 1, 12);
+    g.fillStyle = '#f4f4f4'; g.fillRect(X + 7, GY + 5, 18, 7); drawText(g, 'HIRING', X + 16, GY + 6, '#c0392b', 1, 'center', null);
+    g.fillStyle = '#1e2a36'; g.fillRect(cx - 6, GY + 2, 12, 14); g.fillStyle = '#6a98b8'; g.fillRect(cx - 5, GY + 3, 4, 13); g.fillRect(cx + 1, GY + 3, 4, 13);
+    return;
+  }
+  if (b.special === 'pawn'){
+    signBoard(g, cx, GY - 10, 'PAWN SHOP', '#1a1a1a', '#f2c94c');
+    g.fillStyle = '#2a1a1a'; g.fillRect(X + 3, GY + 2, W - 6, 14);
+    g.fillStyle = '#5a4a30'; g.fillRect(X + 4, GY + 3, 18, 10);
+    g.fillStyle = '#1a1a1a'; for (let xx = X + 5; xx < X + 22; xx += 3) g.fillRect(xx, GY + 3, 1, 10);
+    g.fillStyle = '#3a2418'; g.fillRect(cx + 4, GY + 3, 9, 13); g.fillStyle = '#f2c94c'; g.fillRect(cx + 11, GY + 9, 1, 1);
+    fillCircle(g, X + W - 10, GY - 2, 2, '#f2c94c'); fillCircle(g, X + W - 5, GY - 2, 2, '#f2c94c'); fillCircle(g, X + W - 7, GY + 2, 2, '#f2c94c');
+    return;
+  }
+  if (b.ground === 'shop'){
+    g.fillStyle = '#1a1a1a'; g.fillRect(X + 2, GY - 9, W - 4, 8);
+    drawText(g, b.sign, cx, GY - 7, '#fff4c8', 1, 'center', null);
+    for (let xx = X + 1; xx < X + W - 1; xx++){ g.fillStyle = ((xx - X) >> 2) % 2 ? '#f4f0e8' : b.awning; g.fillRect(xx, GY, 1, 5); if ((xx - X) % 4 < 2) g.fillRect(xx, GY + 5, 1, 1); }
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(X + 1, GY + 6, W - 2, 1);
+    g.fillStyle = '#2a3448'; g.fillRect(X + 3, GY + 7, W - 6, 9);
+    g.fillStyle = '#e8d890'; g.fillRect(X + 5, GY + 9, W - 22, 5);
+    g.fillStyle = shade(b.awning, 40); for (let xx = X + 6; xx < X + W - 18; xx += 5) g.fillRect(xx, GY + 11, 3, 3);
+    g.fillStyle = '#3a2418'; g.fillRect(X + W - 13, GY + 7, 8, 9); g.fillStyle = '#f2c94c'; g.fillRect(X + W - 7, GY + 11, 1, 1);
+  } else if (b.ground === 'stoop'){
+    g.fillStyle = wallD; g.fillRect(cx - 5, GY + 1, 10, 12);
+    g.fillStyle = '#3a2016'; g.fillRect(cx - 4, GY + 2, 8, 11);
+    g.fillStyle = '#e8c870'; g.fillRect(cx + 2, GY + 7, 1, 1);
+    g.fillStyle = '#9a9a92'; g.fillRect(cx - 6, GY + 12, 12, 2);
+    g.fillStyle = '#86867e'; g.fillRect(cx - 7, GY + 14, 14, 2);
+    g.fillStyle = '#161616'; g.fillRect(cx - 7, GY + 8, 1, 8); g.fillRect(cx + 6, GY + 8, 1, 8);
+    for (const wx of [X + 4, X + W - 10]) if (Math.abs(wx - cx) > 10){ g.fillStyle = '#26324a'; g.fillRect(wx, GY + 3, 6, 9); g.fillStyle = wallL; g.fillRect(wx - 1, GY + 12, 8, 1); }
+  } else {
+    g.fillStyle = '#2a2a32'; g.fillRect(cx - 4, GY + 3, 8, 13);
+    g.fillStyle = '#4a4a5a'; g.fillRect(cx - 3, GY + 4, 6, 5);
+    for (const wx of [X + 4, X + W - 10]) if (Math.abs(wx - cx) > 10){ g.fillStyle = '#26324a'; g.fillRect(wx, GY + 4, 6, 8); }
+  }
+}
+function signBoard(g, cx, y, text, bg, fg){
+  const w = text.length * 4 + 5;
+  g.fillStyle = '#000'; g.fillRect(cx - (w >> 1) - 1, y - 1, w + 2, 9);
+  g.fillStyle = bg; g.fillRect(cx - (w >> 1), y, w, 7);
+  drawText(g, text, cx, y + 1, fg, 1, 'center', null);
+}
+function drawAC(g, x, y){
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 2, y + 7, 11, 2);
+  g.fillStyle = '#c8c8c8'; g.fillRect(x, y, 11, 7);
+  g.fillStyle = '#9a9a9a'; for (let i = 1; i < 11; i += 2) g.fillRect(x + i, y + 1, 1, 5);
+  g.fillStyle = '#e8e8e8'; g.fillRect(x, y, 11, 1);
+}
+function drawWaterTower(g, x, y){
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 4, y + 22, 16, 4);
+  g.fillStyle = '#222'; g.fillRect(x + 2, y + 14, 1, 9); g.fillRect(x + 11, y + 14, 1, 9); g.fillRect(x + 6, y + 15, 1, 8);
+  g.fillRect(x + 2, y + 18, 10, 1);
+  g.fillStyle = '#8a5a34'; g.fillRect(x, y + 4, 14, 11);
+  g.fillStyle = '#9c6a40'; for (let i = 1; i < 14; i += 3) g.fillRect(x + i, y + 4, 1, 11);
+  g.fillStyle = '#4a3020'; g.fillRect(x, y + 7, 14, 1); g.fillRect(x, y + 12, 14, 1);
+  g.fillStyle = '#5a3a24'; g.fillRect(x + 1, y + 2, 12, 2); g.fillRect(x + 3, y, 8, 2); g.fillRect(x + 6, y - 2, 2, 2);
+}
+function drawDepotFront(g, b, X, FY, W, F){
+  const cx = X + W / 2;
+  g.fillStyle = '#c4bdae'; for (let xx = X + 16; xx < X + W; xx += 16) g.fillRect(xx, FY + 2, 1, F - 2);
+  g.fillStyle = '#f26f21'; g.fillRect(X, FY + 2, W, 5);
+  g.fillStyle = '#000'; g.fillRect(cx - 47, FY + 10, 94, 22);
+  g.fillStyle = '#f26f21'; g.fillRect(cx - 46, FY + 11, 92, 20);
+  g.fillStyle = '#fff'; g.fillRect(cx - 44, FY + 13, 88, 1); g.fillRect(cx - 44, FY + 28, 88, 1);
+  drawText(g, 'HOME DEPOT', cx, FY + 16, '#ffffff', 2, 'center', null);
+  // entrance
+  g.fillStyle = '#4a4a4a'; g.fillRect(cx - 22, FY + F - 24, 44, 24);
+  g.fillStyle = '#8ab8d8'; g.fillRect(cx - 20, FY + F - 22, 40, 22);
+  g.fillStyle = '#4a4a4a'; g.fillRect(cx - 1, FY + F - 22, 2, 22); g.fillRect(cx - 11, FY + F - 22, 1, 22); g.fillRect(cx + 10, FY + F - 22, 1, 22);
+  g.fillStyle = '#f26f21'; g.fillRect(cx - 22, FY + F - 26, 44, 2);
+  // lumber stacks & side windows
+  for (const lx of [X + 10, X + 40, X + W - 66, X + W - 36]){
+    g.fillStyle = '#7a5a30'; g.fillRect(lx, FY + F - 4, 26, 4);
+    for (let i = 0; i < 3; i++){ g.fillStyle = i % 2 ? '#d8b878' : '#c8a464'; g.fillRect(lx + 1, FY + F - 8 - i * 4, 24, 4); g.fillStyle = '#a07a40'; g.fillRect(lx + 1, FY + F - 8 - i * 4, 24, 1); }
+  }
+  g.fillStyle = '#2a3448'; g.fillRect(X + 8, FY + 36, 30, 10); g.fillRect(X + W - 38, FY + 36, 30, 10);
+  drawText(g, 'LUMBER', X + 23, FY + 39, '#f2c94c', 1, 'center', null);
+  drawText(g, 'TOOLS', X + W - 23, FY + 39, '#f2c94c', 1, 'center', null);
+}
+
+function renderStatic(){
+  const g = mapC.getContext('2d'), r = mulberry32(99);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) drawTile(g, x, y, r);
+  // lane markings
+  g.fillStyle = '#d8b030';
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++){
+    if (tAt(x, y) !== ROAD) continue;
+    const vx = vStrip[x], hy = hStrip[y], inV = vx >= 0, inH = hy >= 0;
+    if (inV && inH) continue;
+    if (inH && hy === 1) g.fillRect(x * T + 3, y * T + 7, 10, 2);
+    if (inV && vx === 1) g.fillRect(x * T + 7, y * T + 3, 2, 10);
+  }
+  for (const b of buildings){
+    g.fillStyle = 'rgba(0,0,0,0.22)';
+    g.fillRect((b.x + b.w) * T, b.y * T + 6, 5, b.h * T - 6);
+    g.fillRect(b.x * T + 4, (b.y + b.h) * T, b.w * T, 3);
+  }
+  for (const b of buildings) drawBuilding(g, b);
+}
+
+// ================= CITY MAP (M) =================
+// A literal shrunken copy of the city, chunky-pixelated like an 8-bit map screen.
+const MAP_DIV = 4;
+const bigC = $('bigmapc'), bg2 = bigC.getContext('2d');
+let bigBase = null, bigOpen = false;
+function buildCityMap(){
+  const full = document.createElement('canvas'); full.width = WPX; full.height = HPX;
+  const g = full.getContext('2d');
+  g.drawImage(mapC, 0, 0);
+  for (const l of lots) drawLot(g, l);
+  for (const p of props) if (p.type === 'tree') drawProp(g, p);
+  bigBase = document.createElement('canvas'); bigBase.width = WPX / MAP_DIV; bigBase.height = HPX / MAP_DIV;
+  const sg = bigBase.getContext('2d'); sg.imageSmoothingEnabled = true; sg.imageSmoothingQuality = 'high';
+  sg.drawImage(full, 0, 0, bigBase.width, bigBase.height);
+  bigC.width = bigBase.width; bigC.height = bigBase.height;
+  const sc = Math.min(innerWidth * 0.94 / bigC.width, innerHeight * 0.84 / bigC.height);
+  const s = sc >= 1 ? Math.floor(sc) : sc;
+  bigC.style.width = bigC.width * s + 'px'; bigC.style.height = bigC.height * s + 'px';
+}
+function toggleBigMap(open = !bigOpen){
+  if (open && !started) return;
+  bigOpen = open;
+  if (open) buildCityMap();
+  $('bigmap').style.display = open ? 'flex' : 'none';
+  $('hud').style.display = open ? 'none' : 'block';
+}
+function drawCityMap(){
+  if (!bigOpen) return;
+  const g = bg2; g.drawImage(bigBase, 0, 0);
+  const blink = (time * 3 | 0) % 2;
+  if (S.job && blink){
+    const l = lots.find(l => l.id === S.job.lot);
+    g.fillStyle = '#f26f21';
+    const x = l.x * T / MAP_DIV, y = l.y * T / MAP_DIV, w = 64 / MAP_DIV, h = 128 / MAP_DIV;
+    g.fillRect(x, y, w, 1); g.fillRect(x, y + h - 1, w, 1); g.fillRect(x, y, 1, h); g.fillRect(x + w - 1, y, 1, h);
+  }
+  const px = Math.round(player.x / MAP_DIV), py = Math.round(player.y / MAP_DIV);
+  g.fillStyle = '#000'; g.fillRect(px - 2, py - 2, 5, 5);
+  g.fillStyle = blink ? '#ff3a3a' : '#fff'; g.fillRect(px - 1, py - 1, 3, 3);
+  // little pixel arrow pointing down at you
+  const ay = py - 9 + (time * 4 | 0) % 2;
+  g.fillStyle = '#000'; g.fillRect(px - 3, ay - 1, 7, 5);
+  g.fillStyle = '#fff'; g.fillRect(px - 2, ay, 5, 1); g.fillRect(px - 1, ay + 1, 3, 1); g.fillRect(px, ay + 2, 1, 1);
+}
+
+// ================= CHARACTERS =================
+const SKINS = ['#f1c9a5','#e0ac7e','#c68642','#8d5524','#5c3a21','#f6d7c3'];
+const HAIRS = ['#2a1a10','#4a2a14','#8a5a2a','#d8b060','#1a1a1a','#9a9a9a','#a83a1a'];
+const SHIRTS = ['#c0392b','#2980b9','#27ae60','#8e44ad','#f39c12','#2c3e50','#e8e8e8','#16a085','#d35400','#34495e','#e84393','#f1c40f'];
+const PANTS = ['#2c3e50','#1e272e','#3d5a80','#5a4a3a','#4a4a4a','#2d3436','#6a5a4a'];
+function randLook(){
+  const hair = pick(HAIRS), shirt = pick(SHIRTS);
+  return {skin: pick(SKINS), hair, hairStyle: pick(['short','short','long','bald','cap','bun']), hat: pick(SHIRTS), shirt, shirt2: shade(shirt, -30),
+    pants: pick(PANTS), shoes: pick(['#1a1a1a','#5a3a1a','#e8e8e8','#7a1a1a']), beard: rnd() < 0.15 ? hair : null, tie: rnd() < 0.2 ? pick(['#a02020','#202a80','#1a1a1a']) : null};
+}
+const HOBO = {skin:'#d8a478', hair:'#5a4028', hairStyle:'beanie', hat:'#5a6a3a', shirt:'#7a5532', shirt2:'#5a3c20', pants:'#4a3626', shoes:'#2b2420', beard:'#6b5034', ragged:true, dirty:true};
+
+function drawChar(g, c){
+  const L = c.look, x = Math.round(c.x), y = Math.round(c.y);
+  g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x - 4, y - 2, 9, 3); g.fillRect(x - 5, y - 1, 11, 1);
+  const mv = c.moving, run = mv && c.running, act = c.act;
+  const s = mv ? Math.sin(c.phase) : 0;
+  let bob = mv ? Math.round(Math.abs(Math.cos(c.phase)) * (run ? 2 : 1)) : 0;
+  // side views use a proper 4-frame stride: contact, passing, contact, passing
+  const side = c.dir === 2 || c.dir === 3;
+  const fr = side && mv ? ((Math.floor(c.phase / (Math.PI / 2)) % 4) + 4) % 4 : -1;
+  if (fr >= 0) bob = fr % 2 ? (run ? 2 : 1) : 0;
+  if (act === 'search') bob = Math.sin(c.actT * 30) > 0 ? 1 : 0;
+  if (act === 'build') bob = Math.sin(c.actT * 14) > 0.5 ? 1 : 0;
+  const ox = x - 6, oy = y - 18 - bob, dir = c.dir, flip = dir === 2;
+  const P = (px, py, w, h, col) => { g.fillStyle = col; g.fillRect(flip ? ox + 12 - px - w : ox + px, oy + py, w, h); };
+  const skinD = shade(L.skin, -30), shirtD = shade(L.shirt, -35), pantsD = shade(L.pants, -25), hatD = shade(L.hat, -30);
+  const blink = ((time * 1000 + (c.blink || 0)) % 3600) < 110;
+  const dark = '#1a1a1a';
+
+  if (dir === 0 || dir === 1){
+    const lift = run ? 2 : 1, lL = s > 0.3 ? lift : 0, lR = s < -0.3 ? lift : 0;
+    P(3, 14, 2, 3 - lL, L.pants); P(3, 17 - lL, 2, 1, L.shoes);
+    P(7, 14, 2, 3 - lR, L.pants); P(7, 17 - lR, 2, 1, L.shoes);
+    let aL = Math.round(-s * (run ? 1.6 : 1)), aR = -aL;
+    if (act === 'search'){ const q = Math.sin(c.actT * 30) > 0 ? 1 : -1; aL = -2 * q; aR = 2 * q; }
+    if (act === 'build'){ aR = Math.sin(c.actT * 14) > 0 ? -3 : 1; aL = 0; }
+    const arm = (ax, a) => { const len = Math.max(1, 4 + a); P(ax, 8, 2, len, L.shirt); P(ax, 8 + len, 2, 1, L.skin); };
+    arm(1, aL); arm(9, aR);
+    P(3, 8, 6, 6, L.shirt); P(3, 8, 1, 6, shirtD);
+    if (L.ragged){ P(3, 13, 1, 1, L.pants); P(6, 13, 1, 1, L.pants); P(5, 10, 2, 2, L.shirt2); P(8, 12, 1, 1, shirtD); P(1, 11, 1, 1, L.shirt2); }
+    else if (L.tie && dir === 0) P(5, 9, 2, 4, L.tie);
+    if (dir === 0) P(5, 8, 2, 1, L.skin);
+    P(2, 0, 8, 8, L.skin);
+    if (dir === 0){
+      const hs = L.hairStyle;
+      if (hs === 'beanie'){ P(2, 0, 8, 3, L.hat); P(1, 2, 10, 1, hatD); P(4, 0, 1, 1, hatD); P(2, 3, 1, 2, L.hair); P(9, 3, 1, 2, L.hair); }
+      else if (hs === 'short'){ P(2, 0, 8, 2, L.hair); P(2, 2, 1, 2, L.hair); P(9, 2, 1, 2, L.hair); }
+      else if (hs === 'long'){ P(2, 0, 8, 2, L.hair); P(1, 1, 2, 8, L.hair); P(9, 1, 2, 8, L.hair); }
+      else if (hs === 'bald'){ P(2, 3, 1, 2, L.hair); P(9, 3, 1, 2, L.hair); P(3, 1, 2, 1, shade(L.skin, 25)); }
+      else if (hs === 'cap'){ P(2, 0, 8, 2, L.hat); P(1, 2, 10, 1, hatD); }
+      else if (hs === 'bun'){ P(4, -2, 4, 2, L.hair); P(2, 0, 8, 2, L.hair); P(2, 2, 1, 3, L.hair); P(9, 2, 1, 3, L.hair); }
+      if (blink){ P(4, 4, 1, 1, skinD); P(7, 4, 1, 1, skinD); } else { P(4, 4, 1, 1, dark); P(7, 4, 1, 1, dark); }
+      if (L.beard){ P(2, 5, 1, 2, L.beard); P(9, 5, 1, 2, L.beard); P(4, 5, 4, 1, L.beard); P(2, 6, 8, 2, L.beard); P(3, 8, 6, 1, L.beard); P(5, 6, 2, 1, shade(L.beard, -35)); P(4, 9, 1, 1, L.beard); P(7, 9, 1, 1, L.beard); }
+      else P(5, 6, 2, 1, skinD);
+      if (L.dirty){ P(3, 3, 1, 1, skinD); P(8, 5, 1, 1, skinD); }
+    } else {
+      const hs = L.hairStyle;
+      if (hs === 'beanie'){ P(2, 0, 8, 4, L.hat); P(1, 3, 10, 1, hatD); P(2, 4, 8, 2, L.hair); }
+      else if (hs === 'short'){ P(2, 0, 8, 6, L.hair); }
+      else if (hs === 'long'){ P(1, 0, 10, 10, L.hair); }
+      else if (hs === 'bald'){ P(2, 4, 8, 2, L.hair); }
+      else if (hs === 'cap'){ P(2, 0, 8, 3, L.hat); P(2, 3, 8, 3, L.hair); }
+      else if (hs === 'bun'){ P(4, -2, 4, 2, L.hair); P(2, 0, 8, 6, L.hair); }
+      if (L.beard){ P(2, 6, 1, 2, L.beard); P(9, 6, 1, 2, L.beard); }
+    }
+  } else {
+    const stride = run ? 3 : 2, lift = run ? 2 : 1;
+    // front (near) leg / back (far) leg: x offset and how far the foot is lifted
+    let fl = 0, bl = 0, fLift = 0, bLift = 0;
+    if (fr === 0){ fl = stride; bl = -stride; }
+    else if (fr === 2){ fl = -stride; bl = stride; }
+    else if (fr === 1){ bLift = lift; bl = run ? -1 : 0; }
+    else if (fr === 3){ fLift = lift; fl = run ? -1 : 0; }
+    // arms swing opposite to the leg on the same side
+    const armS = run ? 3 : 2;
+    let fa = fr === 0 ? -armS : fr === 2 ? armS : 0, ba = -fa;
+    if (act === 'search'){ const q = Math.sin(c.actT * 30) > 0 ? 1 : 0; fa = 2 + q; ba = 1 - q; }
+    const lean = run ? 1 : 0;
+    P(5 + ba + lean, 9, 2, 3, shirtD); P(5 + ba + lean, 12, 2, 1, skinD);
+    P(5 + bl, 14, 2, 3 - bLift, pantsD); P(5 + bl, 17 - bLift, 3, 1, shade(L.shoes, -20));
+    P(5 + fl, 14, 2, 3 - fLift, L.pants); P(5 + fl, 17 - fLift, 3, 1, L.shoes);
+    P(4 + lean, 8, 5, 6, L.shirt); P(4 + lean, 8, 1, 6, shirtD);
+    if (L.ragged){ P(4, 13, 1, 1, L.pants); P(7, 13, 1, 1, L.pants); P(6 + lean, 10, 2, 2, L.shirt2); }
+    if (act !== 'build'){ P(5 + fa + lean, 9, 2, 3, L.shirt); P(5 + fa + lean, 12, 2, 1, L.skin); }
+    const h = lean;
+    P(2 + h, 0, 8, 8, L.skin); P(10 + h, 4, 1, 1, L.skin);
+    const hs = L.hairStyle;
+    if (hs === 'beanie'){ P(2 + h, 0, 8, 3, L.hat); P(1 + h, 2, 10, 1, hatD); P(2 + h, 3, 3, 2, L.hair); }
+    else if (hs === 'short'){ P(2 + h, 0, 8, 2, L.hair); P(2 + h, 2, 3, 3, L.hair); }
+    else if (hs === 'long'){ P(2 + h, 0, 8, 2, L.hair); P(1 + h, 1, 4, 9, L.hair); }
+    else if (hs === 'bald'){ P(2 + h, 3, 2, 2, L.hair); }
+    else if (hs === 'cap'){ P(2 + h, 0, 8, 2, L.hat); P(8 + h, 2, 4, 1, hatD); P(2 + h, 2, 3, 2, L.hair); }
+    else if (hs === 'bun'){ P(0 + h, 0, 3, 3, L.hair); P(2 + h, 0, 8, 2, L.hair); P(2 + h, 2, 3, 3, L.hair); }
+    P(8 + h, 4, 1, 1, blink ? skinD : dark);
+    if (L.beard){ P(4 + h, 4, 1, 2, L.beard); P(5 + h, 6, 5, 2, L.beard); P(7 + h, 5, 3, 1, L.beard); P(5 + h, 8, 4, 1, L.beard); P(9 + h, 6, 1, 1, shade(L.beard, -35)); }
+    else P(9 + h, 6, 1, 1, skinD);
+    if (L.dirty) P(6 + h, 4, 1, 1, skinD);
+  }
+  if (act === 'build'){
+    const up = Math.sin(c.actT * 14) > 0;
+    if (dir === 2 || dir === 3){
+      if (up){ P(6, 6, 2, 3, L.shirt); P(7, 5, 2, 1, L.skin); P(8, 1, 1, 5, '#8a5a2a'); P(7, 0, 4, 2, '#9a9a9a'); }
+      else { P(7, 10, 2, 2, L.shirt); P(9, 10, 1, 1, L.skin); P(10, 10, 3, 1, '#8a5a2a'); P(12, 9, 2, 3, '#9a9a9a'); }
+    } else if (dir === 0){
+      if (up){ P(10, 4, 1, 5, '#8a5a2a'); P(9, 3, 3, 2, '#9a9a9a'); }
+      else { P(10, 13, 1, 3, '#8a5a2a'); P(9, 16, 3, 2, '#9a9a9a'); }
+    }
+  }
+}
+
+// ================= WORLD OBJECTS =================
+let S, time = 0, started = false;
+const player = {x: 0, y: 0, dir: 0, phase: 0, moving: false, running: false, look: HOBO, act: null, actT: 0, dust: 0, blink: 500};
+const cam = {x: 0, y: 0};
+const npcs = [], cars = [], groundItems = [], particles = [], floats = [];
+const NAMES = ['Linda','Marcus','Rosa','Tony','Priya','Kevin','Dana','Sal','Mei','Jamal','Olga','Frankie','Gus','Tasha','Benny','Yuki','Carlos','Doris','Vinny','Aisha','Moe','Gloria','Hector','Becky','Ray','Nadia','Lou','Ingrid','Dev','Shirley','Pete','Camila','Earl','Zoe','Abe','Lena'];
+const ROLES = ['Commuter','Tourist','Banker','Student','Jogger','Grandma','Hipster','Construction Worker','Dog Walker','Street Vendor','Artist','Nurse','Off-duty Cabbie','Lawyer','Bike Messenger'];
+const GREET_NICE = ["Hey there, buddy!", "Oh, hi! Need something?", "How ya doin'?", "Rough day? What's up?", "Sure, I got a minute."];
+const GREET_MEH = ["Ugh. What?", "Make it quick, pal.", "I'm walkin' here!", "...yeah?", "I don't have all day."];
+
+function makeNPC(i){
+  const idx = sideTiles[Math.floor(rnd() * sideTiles.length)], tx = idx % MW, ty = (idx / MW) | 0;
+  const role = pick(ROLES), grumpy = rnd() < 0.15;
+  const n = {id: i, name: NAMES[i % NAMES.length], role, look: randLook(), x: tx * T + 8, y: ty * T + 11, tx, ty, dir: 0,
+    speed: role === 'Jogger' ? 58 : 22 + rnd() * 14, running: role === 'Jogger', phase: rnd() * 6, moving: false, state: 'walk', idleT: 0,
+    gen: grumpy ? 0.05 : 0.2 + rnd() * 0.55, cash: round2(10 + rnd() * 70), grumpy, begT: -1e9, blink: rnd() * 3000,
+    goods: [], greet: grumpy ? pick(GREET_MEH) : pick(GREET_NICE)};
+  const ng = rint(1, 2);
+  for (let k = 0; k < ng; k++) n.goods.push(weightedPick(JUNK_IDS, id => Math.sqrt(ITEMS[id].val) * (ITEMS[id].val > 0.5 ? 1 : 0.2)));
+  if (role === 'Jogger') n.look.shirt = pick(['#e84393', '#27ae60', '#f39c12']);
+  if (role === 'Construction Worker'){ n.look.hairStyle = 'cap'; n.look.hat = '#f2c94c'; n.look.shirt = '#f07a1a'; }
+  if (role === 'Banker' || role === 'Lawyer'){ n.look.shirt = '#2c3e50'; n.look.pants = '#1e272e'; n.look.tie = '#a02020'; n.cash = round2(n.cash + 60); }
+  return n;
+}
+function npcChoose(n){
+  const D = [[0, 1, 0], [0, -1, 1], [-1, 0, 2], [1, 0, 3]], REV = [1, 0, 3, 2];
+  const opts = D.filter(d => { const t = tAt(n.tx + d[0], n.ty + d[1]); return t === SIDE || t === CROSS; });
+  let cand = opts.filter(d => d[2] !== REV[n.dir]); if (!cand.length) cand = opts;
+  if (!cand.length) return;
+  const straight = cand.find(d => d[2] === n.dir);
+  const d = straight && rnd() < 0.7 ? straight : pick(cand);
+  n.tx += d[0]; n.ty += d[1]; n.dir = d[2];
+}
+// ---- cops: patrol like everyone else, but chase you if they see you break the law
+let arrestT = 0, jayT = 0;
+const COP_NAMES = ['Officer Reyes','Officer Kelly','Officer Brooks','Officer Kim','Officer Russo','Officer Diaz','Officer Walsh'];
+function makeCop(i){
+  const n = makeNPC(200 + i);
+  Object.assign(n, {name: COP_NAMES[i % COP_NAMES.length], role: 'NYPD', cop: true, speed: 24, running: false, cool: 0, chaseT: 0});
+  n.look = Object.assign(randLook(), {shirt: '#22407a', shirt2: '#1a3060', pants: '#16203a', shoes: '#111', hairStyle: 'cap', hat: '#1a2a4a', tie: null, beard: null, badge: true});
+  return n;
+}
+function reportCrime(what){
+  if (arrestT > 0 || npcs.some(n => n.state === 'chase')) return;
+  let cop = null, bd = 130;
+  for (const n of npcs) if (n.cop && n.cool <= 0){ const d = Math.hypot(n.x - player.x, n.y - player.y); if (d < bd){ bd = d; cop = n; } }
+  if (!cop) return;
+  if (cop === npcTalk) closePanel();
+  cop.state = 'chase'; cop.chaseT = 0;
+  addFloat(cop.x, cop.y - 28, 'HEY! STOP!', '#ff6a6a');
+  toast(`A cop saw you ${what}! RUN! (hold SHIFT)`, '#ff6a6a'); SFX.siren();
+}
+function snapToSidewalk(n){
+  const cx = Math.floor(n.x / T), cy = Math.floor(n.y / T);
+  for (let rad = 0; rad < 10; rad++) for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++)
+    if (tAt(cx + dx, cy + dy) === SIDE){ n.tx = cx + dx; n.ty = cy + dy; n.state = 'walk'; return; }
+}
+function updateCop(n, dt){
+  n.chaseT += dt;
+  const dx = player.x - n.x, dy = player.y - n.y, d = Math.hypot(dx, dy);
+  if (d < 10 && arrestT <= 0){ arrest(n); return; }
+  if (n.chaseT > 12 || d > 240){
+    n.cool = 8; snapToSidewalk(n); n.running = false;
+    addFloat(n.x, n.y - 26, 'GOT AWAY...', '#cccccc'); toast('You lost the cop. Phew.', '#8ff06a');
+    return;
+  }
+  const sp = 78 * dt, vx = dx / d * sp, vy = dy / d * sp;
+  let moved = false;
+  if (!blockedAt(n.x + vx, n.y)){ n.x += vx; moved = true; }
+  if (!blockedAt(n.x, n.y + vy)){ n.y += vy; moved = true; }
+  if (!moved){ n.x += Math.sign(dy) * sp; n.y += Math.sign(dx) * sp; }
+  n.moving = true; n.running = true; n.phase += dt * 15;
+  n.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 2 : 3) : (dy < 0 ? 1 : 0);
+}
+function arrest(cop){
+  arrestT = 2.4; closePanel(); player.act = null; player.moving = false;
+  const lost = Object.keys(S.inv).length;
+  S.inv = {}; invDirty = true;
+  cop.cool = 10; snapToSidewalk(cop); cop.running = false;
+  addFloat(cop.x, cop.y - 28, 'YOU\'RE UNDER ARREST!', '#ff6a6a');
+  toast(lost ? 'BUSTED! The cops confiscated all your stuff.' : 'BUSTED! Lucky you had nothing on you.', '#ff6a6a');
+  const b = $('busted'); b.style.display = 'flex'; setTimeout(() => { b.style.display = 'none'; }, 2200);
+  SFX.siren(); save();
+}
+function updateNPC(n, dt){
+  if (n.cop){ if (n.cool > 0) n.cool -= dt; if (n.state === 'chase'){ updateCop(n, dt); return; } }
+  n.moving = false;
+  if (n.state === 'talk' || n.state === 'stand') return;
+  if (n.state === 'idle'){ n.idleT -= dt; if (n.idleT <= 0) n.state = 'walk'; return; }
+  const gx = n.tx * T + 8, gy = n.ty * T + 11, dx = gx - n.x, dy = gy - n.y, d = Math.hypot(dx, dy), step = n.speed * dt;
+  if (d <= step){
+    n.x = gx; n.y = gy;
+    if (rnd() < 0.035 && tAt(n.tx, n.ty) === SIDE){ n.state = 'idle'; n.idleT = 1 + rnd() * 3; }
+    else npcChoose(n);
+  } else { n.x += dx / d * step; n.y += dy / d * step; n.moving = true; n.phase += dt * (n.running ? 15 : 9); }
+}
+
+function spawnCars(){
+  const mk = (horiz, dir, road) => {
+    // drop the car somewhere along this street that's actually paved
+    for (let tries = 0; tries < 30; tries++){
+      const pos = 20 + rnd() * ((horiz ? WPX : HPX) - 40), c = {horiz, dir, road};
+      const lane = laneOf(c), t = horiz ? tAt(pos / T | 0, lane / T | 0) : tAt(lane / T | 0, pos / T | 0);
+      if (t !== ROAD) continue;
+      const taxi = rnd() < 0.5;
+      cars.push(Object.assign(c, {lane, pos, speed: 0, max: 48 + rnd() * 30, col: taxi ? '#f2c42c' : pick(CAR_COLS), taxi, blockT: 0, honk: 0}));
+      return;
+    }
+  };
+  for (const y0 of LAYOUT.rowY) for (const dir of [1, -1]){ const n = rint(1, 2); for (let i = 0; i < n; i++) mk(true, dir, y0 * T); }
+  for (const x0 of LAYOUT.colX) for (const dir of [1, -1]) if (rnd() < 0.8) mk(false, dir, x0 * T);
+}
+function laneOf(c){ return c.road + (c.horiz ? (c.dir > 0 ? 36 : 13) : (c.dir > 0 ? 12 : 36)); }
+function carRect(c){ return c.horiz ? {x: c.pos - 13, y: c.lane - 6, w: 26, h: 12} : {x: c.lane - 7, y: c.pos - 12, w: 14, h: 24}; }
+function carXY(c){ return c.horiz ? [c.pos, c.lane] : [c.lane, c.pos]; }
+function updateCar(c, dt){
+  const ahead = c.horiz
+    ? (c.dir > 0 ? {x: c.pos + 13, y: c.lane - 10, w: 20, h: 20} : {x: c.pos - 33, y: c.lane - 10, w: 20, h: 20})
+    : (c.dir > 0 ? {x: c.lane - 10, y: c.pos + 12, w: 20, h: 20} : {x: c.lane - 10, y: c.pos - 32, w: 20, h: 20});
+  const inA = (px, py) => px >= ahead.x && px < ahead.x + ahead.w && py >= ahead.y && py < ahead.y + ahead.h;
+  let blocked = false, byPlayer = false;
+  if (inA(player.x, player.y)){ blocked = true; byPlayer = true; }
+  if (!blocked) for (const n of npcs) if (inA(n.x, n.y)){ blocked = true; break; }
+  if (!blocked) for (const o of cars){
+    if (o === c || o.horiz !== c.horiz || o.lane !== c.lane) continue;
+    const gap = (o.pos - c.pos) * c.dir;
+    if (gap > 0 && gap < 36){ blocked = true; break; }
+  }
+  if (blocked) c.speed = Math.max(0, c.speed - 260 * dt); else c.speed = Math.min(c.max, c.speed + 70 * dt);
+  c.pos += c.speed * c.dir * dt;
+  // dead end, water or map edge ahead: pull a U-turn into the other lane
+  const lp = c.pos + c.dir * 18, ta = c.horiz ? tAt(Math.floor(lp / T), Math.floor(c.lane / T)) : tAt(Math.floor(c.lane / T), Math.floor(lp / T));
+  if (ta !== ROAD && ta !== CROSS){ c.dir = -c.dir; c.lane = laneOf(c); c.speed *= 0.3; }
+  c.honk -= dt;
+  if (byPlayer){ c.blockT += dt; if (c.blockT > 0.8 && c.blockT - dt <= 0.8) reportCrime('blocking traffic'); if (c.blockT > 1.3 && c.honk <= 0){ c.honk = 2.5; const [x, y] = carXY(c); addFloat(x, y - 16, pick(['HONK!', 'BEEP BEEP!', 'MOVE IT!']), '#ffef8a'); SFX.honk(); } }
+  else c.blockT = 0;
+}
+function drawCar(g, c){
+  const [cx, cy] = carXY(c).map(Math.round), col = c.col, d1 = shade(col, -45), l1 = shade(col, 30);
+  g.fillStyle = 'rgba(0,0,0,0.3)';
+  if (c.horiz){
+    g.fillRect(cx - 12, cy + 4, 26, 3);
+    g.fillStyle = '#151515'; g.fillRect(cx - 10, cy + 3, 6, 3); g.fillRect(cx + 4, cy + 3, 6, 3);
+    g.fillStyle = d1; g.fillRect(cx - 13, cy - 1, 26, 5);
+    g.fillStyle = col; g.fillRect(cx - 13, cy - 8, 26, 8);
+    g.fillStyle = l1; g.fillRect(cx - 13, cy - 8, 26, 1);
+    const f = c.dir;
+    g.fillStyle = '#5a8ac0'; g.fillRect(cx - 6, cy - 8, 12, 7);
+    g.fillStyle = col; g.fillRect(cx - 4 + (f > 0 ? -1 : 1), cy - 7, 8, 5);
+    g.fillStyle = '#8ab8e0'; g.fillRect(cx + (f > 0 ? 5 : -6), cy - 7, 1, 5);
+    g.fillStyle = '#fff6b0'; g.fillRect(f > 0 ? cx + 12 : cx - 13, cy - 1, 1, 2);
+    g.fillStyle = '#e03030'; g.fillRect(f > 0 ? cx - 13 : cx + 12, cy - 1, 1, 2);
+    if (c.taxi){ g.fillStyle = '#f4f4f4'; g.fillRect(cx - 2, cy - 7, 4, 2); g.fillStyle = '#1a1a1a'; for (let i = -11; i < 12; i += 2) g.fillRect(cx + i, cy + 1, 1, 1); }
+  } else {
+    g.fillRect(cx - 6, cy + 10, 14, 4);
+    g.fillStyle = '#151515'; g.fillRect(cx - 8, cy - 9, 1, 5); g.fillRect(cx + 7, cy - 9, 1, 5); g.fillRect(cx - 8, cy + 4, 1, 5); g.fillRect(cx + 7, cy + 4, 1, 5);
+    g.fillStyle = col; g.fillRect(cx - 7, cy - 13, 14, 22);
+    g.fillStyle = l1; g.fillRect(cx - 7, cy - 13, 1, 22);
+    g.fillStyle = d1; g.fillRect(cx - 7, cy + 9, 14, 4);
+    const f = c.dir;
+    g.fillStyle = '#5a8ac0'; g.fillRect(cx - 5, cy - 6, 10, 10);
+    g.fillStyle = col; g.fillRect(cx - 4, cy - 4, 8, 6);
+    if (f > 0){ g.fillStyle = '#fff6b0'; g.fillRect(cx - 6, cy + 10, 2, 1); g.fillRect(cx + 4, cy + 10, 2, 1); }
+    else { g.fillStyle = '#e03030'; g.fillRect(cx - 6, cy + 10, 2, 1); g.fillRect(cx + 4, cy + 10, 2, 1); }
+    if (c.taxi){ g.fillStyle = '#f4f4f4'; g.fillRect(cx - 2, cy - 2, 4, 2); g.fillStyle = '#1a1a1a'; for (let i = -12; i < 9; i += 2) g.fillRect(cx + 6, cy + i, 1, 1); }
+  }
+}
+
+// ---- props
+function drawProp(g, p){
+  const x = Math.round(p.x), y = Math.round(p.y);
+  if (p.type === 'lamp'){
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 2, y - 1, 6, 2);
+    g.fillStyle = '#2c3a30'; g.fillRect(x - 1, y - 30, 2, 30); g.fillRect(x - 2, y - 3, 4, 3); g.fillRect(x - 1, y - 31, 7, 2); g.fillRect(x + 3, y - 30, 5, 3);
+    g.fillStyle = '#fff2a8'; g.fillRect(x + 4, y - 27, 3, 1);
+  } else if (p.type === 'hydrant'){
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 3, y - 1, 7, 2);
+    g.fillStyle = '#c0392b'; g.fillRect(x - 2, y - 7, 5, 7); g.fillRect(x - 3, y - 5, 7, 2);
+    g.fillStyle = '#8a2020'; g.fillRect(x - 3, y - 9, 7, 2); g.fillRect(x - 1, y - 10, 3, 1);
+    g.fillStyle = '#e05a4a'; g.fillRect(x - 2, y - 7, 1, 6);
+  } else if (p.type === 'tree'){
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 10, y - 3, 21, 5);
+    g.fillStyle = '#6a4a2a'; g.fillRect(x - 2, y - 10, 4, 10); g.fillStyle = '#4a3218'; g.fillRect(x + 1, y - 10, 1, 10);
+    fillCircle(g, x, y - 20, 11, '#2f7a30'); fillCircle(g, x - 3, y - 23, 7, '#3d9a3c'); fillCircle(g, x + 4, y - 18, 5, '#3d9a3c'); fillCircle(g, x - 4, y - 25, 3, '#5ab54a');
+  } else if (p.type === 'bench'){
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 9, y - 1, 19, 2);
+    g.fillStyle = '#333'; g.fillRect(x - 8, y - 5, 1, 5); g.fillRect(x + 7, y - 5, 1, 5);
+    g.fillStyle = '#8a5a2a'; g.fillRect(x - 9, y - 11, 18, 2); g.fillRect(x - 9, y - 7, 18, 2);
+    g.fillStyle = '#a8743a'; g.fillRect(x - 9, y - 11, 18, 1); g.fillRect(x - 9, y - 7, 18, 1);
+  } else if (p.type === 'umbrella'){
+    g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(x - 6, y - 1, 14, 3);
+    g.fillStyle = '#f4f4f4'; g.fillRect(x - 7, y + 1, 10, 4); g.fillStyle = p.col; g.fillRect(x - 7, y + 3, 10, 1);
+    g.fillStyle = '#6a4a2a'; g.fillRect(x, y - 16, 1, 16);
+    for (let i = 0; i < 6; i++){ g.fillStyle = i % 2 ? '#fff' : p.col; g.fillRect(x - 9 + i * 3, y - 19 + Math.abs(i - 2.5) * 0.8 | 0, 3, 4); }
+  } else if (p.type === 'pcar'){
+    drawCar(g, p.car);
+  } else if (p.type === 'box'){
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x - 12, y - 1, 26, 3);
+    g.fillStyle = '#5a6a8a'; g.fillRect(x - 12, y - 4, 10, 4); g.fillStyle = '#7a8aaa'; g.fillRect(x - 12, y - 4, 10, 1);
+    g.fillStyle = '#b08a58'; g.fillRect(x - 2, y - 12, 14, 12);
+    g.fillStyle = '#8a6a40'; g.fillRect(x - 2, y - 12, 14, 2); g.fillRect(x + 4, y - 10, 1, 10);
+    g.fillStyle = '#c8a470'; g.fillRect(x + 10, y - 14, 4, 4);
+    drawText(g, 'HOME', x + 5, y - 7, '#5a3a1c', 1, 'center', null);
+  }
+}
+function drawCan(g, c){
+  const x = Math.round(c.x) + (c.shake > 0 ? (Math.random() * 3 | 0) - 1 : 0), y = Math.round(c.y);
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x - 6, y - 1, 13, 3);
+  if (c.kind === 'bags'){
+    fillCircle(g, x - 3, y - 5, 5, '#1e1e26'); fillCircle(g, x + 4, y - 4, 4, '#26262e'); fillCircle(g, x, y - 9, 4, '#2a2a34');
+    g.fillStyle = '#4a4a5a'; g.fillRect(x - 5, y - 8, 2, 1); g.fillRect(x + 1, y - 11, 2, 1);
+    if (c.cool > 0){ g.fillStyle = '#e8e8e8'; g.fillRect(x + 6, y - 2, 3, 2); g.fillStyle = '#c0392b'; g.fillRect(x - 8, y - 1, 2, 2); }
+    else { g.fillStyle = '#1a1a1a'; g.fillRect(x - 1, y - 14, 2, 2); }
+    return;
+  }
+  g.fillStyle = '#4e5c54'; g.fillRect(x - 5, y - 12, 10, 12);
+  g.fillStyle = '#6a7a70'; g.fillRect(x - 4, y - 11, 1, 10); g.fillRect(x, y - 11, 1, 10);
+  g.fillStyle = '#3a4640'; g.fillRect(x - 2, y - 11, 1, 10); g.fillRect(x + 3, y - 11, 1, 10); g.fillRect(x - 5, y - 2, 10, 2);
+  g.fillStyle = '#7d8a82'; g.fillRect(x - 6, y - 13, 12, 2);
+  if (c.cool <= 0){
+    g.fillStyle = '#8a968e'; g.fillRect(x - 6, y - 15, 12, 3); g.fillStyle = '#a8b4ac'; g.fillRect(x - 6, y - 15, 12, 1);
+    g.fillStyle = '#5a665e'; g.fillRect(x - 1, y - 16, 2, 1);
+  } else {
+    g.fillStyle = '#1e1e1e'; g.fillRect(x - 5, y - 13, 10, 2);
+    g.fillStyle = '#8a968e'; g.fillRect(x + 5, y - 3, 7, 3); g.fillStyle = '#5a665e'; g.fillRect(x + 5, y - 1, 7, 1);
+    if ((time * 6 | 0) % 2){ g.fillStyle = '#111'; g.fillRect(x - 2 + Math.round(Math.sin(time * 9) * 4), y - 18 + Math.round(Math.cos(time * 7) * 2), 1, 1); g.fillRect(x + 2 + Math.round(Math.cos(time * 8) * 3), y - 20, 1, 1); }
+  }
+}
+function drawGroundItem(g, it){
+  const x = Math.round(it.x), y = Math.round(it.y), b = Math.round(Math.sin(time * 4 + it.ph) * 1);
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x - 3, y - 1, 7, 2);
+  g.drawImage(ICON[it.id], x - 4, y - 10 + b);
+  if (((time * 2 + it.ph) % 3) < 0.25){ g.fillStyle = '#fff'; g.fillRect(x + 3, y - 12 + b, 1, 3); g.fillRect(x + 2, y - 11 + b, 3, 1); }
+}
+
+// ---- lots & houses
+function houseRect(l){ const s = HOUSES[l.style]; const X = l.x * T, Y = l.y * T; return {x: X + ((64 - s.w) >> 1), y: Y + 80 - s.h, w: s.w, h: s.h}; }
+function drawHouse(g, l, p){
+  const s = HOUSES[l.style], R = houseRect(l), hx = R.x, hy = R.y, w = s.w, h = s.h, fh = s.fh, fy = hy + h - fh, rh = h - fh;
+  if (p < 1){ g.fillStyle = '#b4b2a8'; g.fillRect(hx - 3, hy - 2, w + 6, h + 4); g.fillStyle = '#8a887e'; g.fillRect(hx - 3, hy + h + 1, w + 6, 1); }
+  if (p < 0.25){
+    g.fillStyle = '#7a5a3a'; for (let xx = hx; xx < hx + w; xx += 6) g.fillRect(xx, hy, 1, h);
+    g.fillStyle = '#9a9890'; g.fillRect(hx - 3, hy - 2, Math.round((w + 6) * (p / 0.25)), h + 4);
+    return;
+  }
+  if (p < 0.75){ g.fillStyle = '#a0805a'; g.fillRect(hx, hy, w, rh); g.fillStyle = '#8a6a48'; for (let yy = hy + 3; yy < hy + rh; yy += 4) g.fillRect(hx, yy, w, 1); }
+  if (p < 0.5){
+    g.fillStyle = '#c89a5a';
+    for (let xx = hx; xx < hx + w; xx += 6) g.fillRect(xx, fy, 2, fh);
+    g.fillRect(hx, fy, w, 2); g.fillRect(hx, hy + h - 2, w, 2);
+    g.fillRect(hx, hy, w, 2); g.fillRect(hx, hy, 2, rh); g.fillRect(hx + w - 2, hy, 2, rh);
+    return;
+  }
+  // walls
+  g.fillStyle = s.wall; g.fillRect(hx, fy, w, fh);
+  const wd = shade(s.wall, -25);
+  g.fillStyle = wd;
+  if (s.tex === 'planks') for (let xx = hx + 3; xx < hx + w; xx += 4) g.fillRect(xx, fy, 1, fh);
+  else if (s.tex === 'logs'){ for (let yy = fy + 3; yy < fy + fh; yy += 4) g.fillRect(hx, yy, w, 1); g.fillStyle = shade(s.wall, 20); for (let yy = fy + 1; yy < fy + fh; yy += 4) g.fillRect(hx, yy, w, 1); }
+  else if (s.tex === 'siding') for (let yy = fy + 3; yy < fy + fh; yy += 3) g.fillRect(hx, yy, w, 1);
+  else if (s.tex === 'brick') for (let yy = fy + 3, row = 0; yy < fy + fh; yy += 4, row++){ g.fillRect(hx, yy, w, 1); for (let xx = hx + (row % 2 ? 3 : 0); xx < hx + w; xx += 6) g.fillRect(xx, yy - 3, 1, 3); }
+  g.fillStyle = shade(s.wall, -45); g.fillRect(hx, hy + h - 1, w, 1); g.fillRect(hx, fy, 1, fh); g.fillRect(hx + w - 1, fy, 1, fh);
+  const cx = hx + (w >> 1), floors = s.floors || 1, flH = Math.floor(fh / floors);
+  const win = (wx, wy) => {
+    g.fillStyle = '#f4f0e8'; g.fillRect(wx - 1, wy - 1, 10, 10);
+    g.fillStyle = '#6aa0d0'; g.fillRect(wx, wy, 8, 8);
+    g.fillStyle = '#f4f0e8'; g.fillRect(wx + 3, wy, 2, 8); g.fillRect(wx, wy + 3, 8, 1);
+    g.fillStyle = '#a8d0f0'; g.fillRect(wx + 1, wy + 1, 1, 2);
+    if (s.flowers && wy > fy + fh - flH - 1){ g.fillStyle = '#6a4a2a'; g.fillRect(wx - 1, wy + 9, 10, 2); g.fillStyle = '#e84393'; g.fillRect(wx, wy + 8, 1, 1); g.fillRect(wx + 4, wy + 8, 1, 1); g.fillStyle = '#f2e05a'; g.fillRect(wx + 2, wy + 8, 1, 1); g.fillRect(wx + 6, wy + 8, 1, 1); }
+  };
+  if (s.win){
+    for (let f = 0; f < floors; f++){
+      const wy = fy + f * flH + Math.max(4, ((flH - 10) >> 1) + (f === floors - 1 ? -1 : 2));
+      win(hx + 6, wy); win(hx + w - 15, wy);
+      if (f < floors - 1 && w > 58) win(cx - 4, wy);
+    }
+  }
+  // door
+  const db = fy + fh;
+  if (s.door === 'arch'){ g.fillStyle = '#1a1a1a'; g.fillRect(cx - 5, db - 9, 10, 9); g.fillRect(cx - 3, db - 11, 6, 2); }
+  else if (s.door === 'double'){ g.fillStyle = '#5a3a1a'; g.fillRect(cx - 9, db - 18, 18, 18); g.fillStyle = '#3a2410'; g.fillRect(cx, db - 18, 1, 18); for (let k = 0; k < 9; k++){ g.fillRect(cx - 9 + k, db - 18 + k * 2, 1, 1); g.fillRect(cx + 9 - k, db - 18 + k * 2, 1, 1); } }
+  else if (s.door === 'stoop'){
+    g.fillStyle = '#3a2016'; g.fillRect(cx - 5, db - 22, 10, 15); g.fillStyle = '#e8c870'; g.fillRect(cx + 2, db - 15, 1, 1);
+    g.fillStyle = '#9a9a92'; g.fillRect(cx - 7, db - 7, 14, 3); g.fillStyle = '#86867e'; g.fillRect(cx - 8, db - 4, 16, 4);
+    g.fillStyle = shade(s.wall, -30); g.fillRect(hx, fy, w, 3);
+  } else { g.fillStyle = s.door === 'red' ? '#b03028' : '#5a3a22'; g.fillRect(cx - 5, db - 15, 10, 15); g.fillStyle = shade(s.door === 'red' ? '#b03028' : '#5a3a22', -25); g.fillRect(cx - 3, db - 13, 6, 5); g.fillStyle = '#f2c94c'; g.fillRect(cx + 3, db - 8, 1, 1); }
+  if (p < 0.75){
+    g.fillStyle = '#c89a5a'; g.fillRect(hx, hy, w, 2); g.fillRect(hx, hy, 2, rh); g.fillRect(hx + w - 2, hy, 2, rh);
+    for (let xx = hx + 6; xx < hx + w; xx += 8) g.fillRect(xx, hy, 1, rh);
+    return;
+  }
+  // roof
+  const frac = Math.min(1, (p - 0.75) / 0.2);
+  g.save(); g.beginPath(); g.rect(hx - 4, hy + rh * (1 - frac) - 1, w + 8, rh * frac + 3); g.clip();
+  if (s.flat){
+    g.fillStyle = s.roof; g.fillRect(hx, hy, w, rh);
+    g.fillStyle = shade(s.wall, 20); g.fillRect(hx, hy, w, 3); g.fillRect(hx, hy, 3, rh); g.fillRect(hx + w - 3, hy, 3, rh);
+    g.fillStyle = shade(s.wall, -10); g.fillRect(hx - 1, hy + rh - 4, w + 2, 4); g.fillStyle = shade(s.wall, 35); g.fillRect(hx - 1, hy + rh - 4, w + 2, 1);
+    drawAC(g, hx + 8, hy + 8);
+  } else {
+    const back = Math.round(rh * 0.38), rx = hx - 3, rw = w + 6;
+    g.fillStyle = shade(s.roof, 22); g.fillRect(rx, hy, rw, back);
+    g.fillStyle = shade(s.roof, 45); g.fillRect(rx, hy + back, rw, 1);
+    g.fillStyle = s.roof; g.fillRect(rx, hy + back + 1, rw, rh - back - 1);
+    g.fillStyle = shade(s.roof, -18);
+    for (let yy = hy + back + 4, row = 0; yy < hy + rh; yy += 3, row++){ g.fillRect(rx, yy, rw, 1); for (let xx = rx + (row % 2 ? 2 : 0); xx < rx + rw; xx += 5) g.fillRect(xx, yy - 2, 1, 2); }
+    g.fillStyle = shade(s.roof, -40); g.fillRect(rx, hy + rh - 1, rw, 2);
+    if (s.chimney){ g.fillStyle = '#8a3a2a'; g.fillRect(hx + w - 16, hy - 6, 7, back + 4); g.fillStyle = '#5a2418'; g.fillRect(hx + w - 17, hy - 7, 9, 2); }
+  }
+  g.restore();
+  if (frac < 1){ g.fillStyle = '#c89a5a'; for (let xx = hx; xx < hx + w; xx += 8) g.fillRect(xx, hy, 1, rh * (1 - frac)); }
+  g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(hx, fy, w, 2);
+}
+function drawLot(g, l){
+  const X = l.x * T, Y = l.y * T;
+  if (l.state === 'built'){
+    g.fillStyle = '#5aa646'; g.fillRect(X + 1, Y, 62, 128);
+    g.fillStyle = '#66b852'; for (let i = 0; i < 30; i++) g.fillRect(X + 2 + ((i * 37) % 60), Y + 82 + ((i * 53) % 44), 1, 1);
+    g.fillStyle = '#d8d0bc'; g.fillRect(X + 28, Y + 80, 8, 48);
+    g.fillStyle = '#bcb4a0'; for (let yy = Y + 84; yy < Y + 128; yy += 6) g.fillRect(X + 28, yy, 8, 1);
+    drawHouse(g, l, 1);
+    g.fillStyle = '#5a3a1c'; g.fillRect(X + 47, Y + 108, 2, 10); g.fillStyle = '#2a3a6a'; g.fillRect(X + 44, Y + 103, 8, 6); g.fillStyle = '#c0392b'; g.fillRect(X + 51, Y + 101, 1, 3);
+    if (l.style === 'doghouse'){
+      const wag = (time * 8 | 0) % 2, dx = X + 14, dy = Y + 100;
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(dx - 1, dy + 5, 12, 2);
+      g.fillStyle = '#f0e8d8'; g.fillRect(dx, dy, 8, 5); g.fillRect(dx + 7, dy - 3, 4, 4);
+      g.fillStyle = '#8a5a2a'; g.fillRect(dx + 2, dy + 1, 3, 2); g.fillRect(dx + 10, dy - 3, 1, 2);
+      g.fillStyle = '#1a1a1a'; g.fillRect(dx + 9, dy - 2, 1, 1); g.fillRect(dx + 1, dy + 5, 1, 1); g.fillRect(dx + 6, dy + 5, 1, 1);
+      g.fillStyle = '#f0e8d8'; g.fillRect(dx - 2, dy - 1 + wag, 2, 1);
+    }
+    if (l.style === 'home'){ g.fillStyle = '#5a3a1c'; g.fillRect(X + 12, Y + 108, 2, 10); g.fillStyle = '#f4f0e8'; g.fillRect(X + 3, Y + 100, 20, 9); drawText(g, 'MINE', X + 13, Y + 102, '#c0392b', 1, 'center', null); }
+    return;
+  }
+  const isJob = S.job && S.job.lot === l.id;
+  if (l.progress > 0) drawHouse(g, l, l.progress);
+  else {
+    g.fillStyle = '#e8e0c8';
+    g.fillRect(X + 6, Y + 6, 52, 1); g.fillRect(X + 6, Y + 76, 52, 1); g.fillRect(X + 6, Y + 6, 1, 70); g.fillRect(X + 57, Y + 6, 1, 70);
+    g.fillStyle = '#c87a2a'; for (const [sx, sy] of [[5, 4], [56, 4], [5, 74], [56, 74]]) g.fillRect(X + sx, Y + sy, 3, 4);
+    if (isJob){ g.fillStyle = '#c8a464'; for (let i = 0; i < 3; i++) g.fillRect(X + 10, Y + 90 + i * 3, 18, 2); g.fillStyle = '#9a9a9a'; g.fillRect(X + 36, Y + 92, 8, 6); }
+  }
+  const sx = X + 48, sy = Y + 112;
+  g.fillStyle = '#5a3a1c'; g.fillRect(sx, sy - 10, 2, 12);
+  g.fillStyle = '#000'; g.fillRect(sx - 12, sy - 20, 26, 11);
+  g.fillStyle = isJob ? '#f26f21' : '#f4f0e8'; g.fillRect(sx - 11, sy - 19, 24, 9);
+  drawText(g, isJob ? 'JOB' : 'LOT ' + l.id, sx + 1, sy - 17, isJob ? '#fff' : '#3a3a3a', 1, 'center', null);
+}
+
+// ================= INVENTORY & STATE =================
+const KEY = 'citylife_save_v2';
+function newState(){ return {money: 10, inv: {}, completed: 0, job: null, offers: [], won: false, stats: {searched: 0, found: 0, earned: 0}}; }
+S = newState();
+let invDirty = true, lastMoney = -1;
+const MAX_JUNK = 10;
+const junkTypes = () => Object.keys(S.inv).filter(k => ITEMS[k].cat === 'junk' && S.inv[k] > 0).length;
+function addItem(id, n = 1){
+  if (ITEMS[id].cat === 'junk' && !S.inv[id] && junkTypes() >= MAX_JUNK) return false;
+  S.inv[id] = (S.inv[id] || 0) + n; invDirty = true; return true;
+}
+function removeItem(id, n = 1){ S.inv[id] = (S.inv[id] || 0) - n; if (S.inv[id] <= 0) delete S.inv[id]; invDirty = true; }
+function addMoney(m){ S.money = round2(S.money + m); if (m > 0) S.stats.earned = round2(S.stats.earned + m); bumpMoney(m >= 0); }
+function bumpMoney(up){ const el = $('money'); el.classList.remove('bump', 'drop'); void el.offsetWidth; el.classList.add(up ? 'bump' : 'drop'); }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify({S, lots: lots.map(l => ({state: l.state, style: l.style, owner: l.owner, progress: l.progress}))})); } catch (e) {} }
+function hasSave(){ try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
+function load(){
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false;
+    S = Object.assign(newState(), d.S);
+    d.lots.forEach((l, i) => { if (lots[i]) Object.assign(lots[i], l); });
+    return true;
+  } catch (e) { return false; }
+}
+
+function renderInventory(){
+  invDirty = false;
+  const junk = Object.keys(S.inv).filter(k => ITEMS[k].cat === 'junk');
+  const job = Object.keys(S.inv).filter(k => ITEMS[k].cat !== 'junk').sort((a, b) => SHOP_IDS.indexOf(a) - SHOP_IDS.indexOf(b));
+  const key = i => i < 0 ? '' : `<span class="k">${(i + 1) % 10}</span>`;
+  const slot = (id, i = -1) => `<div class="slot" data-id="${id}">${key(i)}<img src="${ICONURL[id]}"><span class="n">${S.inv[id] > 1 ? S.inv[id] : ''}</span></div>`;
+  let h = junk.map(slot).join('');
+  for (let i = junk.length; i < MAX_JUNK; i++) h += `<div class="slot empty">${key(i)}</div>`;
+  $('junkslots').innerHTML = h;
+  let j = job.map(id => slot(id)).join('');
+
+  $('jobslots').innerHTML = j;
+}
+// number keys 1-9,0 use the matching junk slot (same as clicking it)
+function useSlot(i){
+  const el = $('junkslots').children[i];
+  if (!el || !el.dataset.id){ return; }
+  for (const s of document.querySelectorAll('.slot.sel')) s.classList.remove('sel');
+  el.classList.add('sel'); setTimeout(() => el.classList.remove('sel'), 300);
+  el.click();
+}
+function jobNeeds(job){
+  const J = JOBS[job.type], list = [];
+  for (const [id, n] of Object.entries(J.mats)) list.push({id, n, have: S.inv[id] || 0});
+  for (const t of J.tools) list.push({id: t, n: 1, have: S.inv[t] ? 1 : 0, tool: true});
+  return list;
+}
+const hasAll = job => jobNeeds(job).every(x => x.have >= x.n);
+
+// ---- tooltip / inventory clicks
+const tip = $('tooltip');
+document.addEventListener('mousemove', e => {
+  const sl = e.target.closest && e.target.closest('.slot[data-id]');
+  if (!sl){ tip.style.display = 'none'; return; }
+  const it = ITEMS[sl.dataset.id];
+  tip.innerHTML = `<span style="color:${it.cat === 'junk' ? rcol(it.val) : '#f2c94c'}">${it.name}</span> x${S.inv[sl.dataset.id] || 0}<br>` +
+    (it.cat === 'junk' ? `Worth about ${fmt(it.val)}${sl.dataset.id === 'lottery' ? '<br>CLICK TO SCRATCH!' : sl.dataset.id === 'sandwich' ? '<br>CLICK TO EAT' : ''}` : it.cat === 'tool' ? 'Tool (never used up)' : 'Building material');
+  tip.style.display = 'block';
+  tip.style.left = Math.min(innerWidth - 220, e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 60) + 'px';
+});
+document.addEventListener('click', e => {
+  const sl = e.target.closest && e.target.closest('.slot[data-id]'); if (!sl) return;
+  const id = sl.dataset.id;
+  if (id === 'lottery'){
+    removeItem(id); const r = rnd();
+    if (r < 0.02){ addMoney(100); toast('JACKPOT! Lottery won $100!', '#f2c94c'); SFX.win(); }
+    else if (r < 0.12){ addMoney(20); toast('Lottery: won $20!', '#8ff06a'); SFX.coin(); }
+    else if (r < 0.35){ addMoney(2); toast('Lottery: won $2. Eh.', '#cfcfcf'); SFX.coin(); }
+    else { toast('Lottery: nothing. Figures.', '#ff7a6a'); SFX.nope(); }
+  } else if (id === 'sandwich'){ removeItem(id); toast('You ate the half sandwich. Tasty... ish.'); SFX.pick(); }
+  else if (ITEMS[id].cat === 'junk') toast(`${ITEMS[id].name}: sell it to people or the pawn shop.`);
+});
+
+// ---- toasts & floats
+function toast(msg, col){
+  const t = document.createElement('div'); t.className = 'toast box'; t.innerHTML = msg; if (col) t.style.color = col;
+  const box = $('toasts'); box.appendChild(t); while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2600);
+}
+function addFloat(x, y, text, col = '#fff'){ floats.push({x, y, text, col, life: 1.6}); }
+function burst(x, y, cols, n = 10, spd = 50){ for (let i = 0; i < n; i++){ const a = rnd() * Math.PI * 2, v = spd * (0.4 + rnd()); particles.push({x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, g: 120, life: 0.5 + rnd() * 0.5, col: pick(cols), s: 1 + (rnd() < 0.3 ? 1 : 0)}); } }
+
+// ================= INTERACTION =================
+let target = null, panelKind = null, panelMsg = '', npcTalk = null, npcView = null, missingT = 0;
+function findTarget(){
+  if (S.job){
+    const l = lots.find(l => l.id === S.job.lot);
+    const X = l.x * T, Y = l.y * T;
+    if (player.x > X - 8 && player.x < X + 72 && player.y > Y - 8 && player.y < Y + 136) return {kind: 'lot', obj: l, x: X + 32, y: Y + 70};
+  }
+  let best = null, bd = 1e9;
+  const consider = (kind, obj, x, y, r) => { const d = Math.hypot(x - player.x, y - player.y); if (d < r && d < bd){ bd = d; best = {kind, obj, x, y}; } };
+  for (const c of cans) consider('trash', c, c.x, c.y, 20);
+  for (const n of npcs) consider('npc', n, n.x, n.y, 18);
+  for (const d of doors) consider('door', d, d.x, d.y, 22);
+  return best;
+}
+function promptText(t){
+  if (!t) return '';
+  if (t.kind === 'trash') return t.obj.cool > 0 ? 'Trash (already picked clean)' : `<b>[E]</b> Search ${t.obj.kind === 'bags' ? 'trash bags' : 'trash can'}`;
+  if (t.kind === 'npc' && t.obj.cop) return `<b>[E]</b> Talk to ${t.obj.name}`;
+  if (t.kind === 'npc') return t.obj.clerk ? `<b>[E]</b> Talk to ${t.obj.name} (Home Depot)` : `<b>[E]</b> Talk / trade with ${t.obj.name}`;
+  if (t.kind === 'door') return `<b>[E]</b> ${t.obj.label}`;
+  if (t.kind === 'lot'){ const J = JOBS[S.job.type]; return S.job.started || hasAll(S.job) ? `<b>[HOLD E]</b> Build ${J.name}` : 'Missing materials! Check your job list.'; }
+  return '';
+}
+function interact(){
+  if (panelKind){ closePanel(); return; }
+  if (player.act || !target) return;
+  const t = target;
+  if (t.kind === 'trash'){
+    if (t.obj.cool > 0){ toast('Nothing left in there. Come back later.'); SFX.nope(); return; }
+    player.act = 'search'; player.actT = 0; player.actCan = t.obj; t.obj.shake = 0.9;
+    reportCrime('digging through the trash');
+    player.dir = Math.abs(t.obj.x - player.x) > Math.abs(t.obj.y - player.y) ? (t.obj.x < player.x ? 2 : 3) : (t.obj.y < player.y ? 1 : 0);
+  } else if (t.kind === 'npc' && t.obj.cop){
+    if (t.obj.state === 'chase') return;
+    addFloat(t.obj.x, t.obj.y - 26, pick(['MOVE ALONG.', 'KEEP IT CLEAN, PAL.', 'NO JAYWALKING.', 'I GOT MY EYE ON YOU.']), '#9ac0ff');
+  } else if (t.kind === 'npc'){ if (t.obj.clerk) openPanel('depot'); else openNPC(t.obj); }
+  else if (t.kind === 'door') openPanel(t.obj.kind);
+  else if (t.kind === 'lot' && !S.job.started && !hasAll(S.job)){
+    const miss = jobNeeds(S.job).filter(x => x.have < x.n).map(x => (x.tool ? '' : (x.n - x.have) + ' ') + ITEMS[x.id].name);
+    toast('Still need: ' + miss.join(', '), '#ff7a6a'); SFX.nope();
+  }
+}
+function rollLoot(){
+  const r = rnd();
+  if (r < 0.17) return null;
+  if (r < 0.27) return {cash: pick([0.05, 0.1, 0.25, 0.25, 0.5, 1, 1, 2, 5])};
+  return {item: weightedPick(JUNK_IDS, id => ITEMS[id].w)};
+}
+function finishSearch(){
+  const c = player.actCan; player.act = null;
+  c.cool = 35 + rnd() * 35; S.stats.searched++;
+  const loot = rollLoot();
+  burst(c.x, c.y - 12, ['#5a5a3a', '#8a7a5a', '#3a3a2a', '#c8c8b8'], 8, 40);
+  if (!loot){ toast(pick(['Just garbage... nothing useful.', 'Old coffee grounds. Gross.', 'Nothing but banana peels.', 'Empty. A rat stared at you.'])); addFloat(c.x, c.y - 22, 'NOTHING', '#bbb'); SFX.nope(); }
+  else if (loot.cash){ addMoney(loot.cash); toast(`Found ${fmt(loot.cash)} in the trash!`, '#8ff06a'); addFloat(c.x, c.y - 22, '+' + fmt(loot.cash), '#8ff06a'); SFX.coin(); }
+  else {
+    const it = ITEMS[loot.item];
+    if (addItem(loot.item)){ S.stats.found++; toast(`Found: <span style="color:${rcol(it.val)}">${it.name}</span>!`); addFloat(c.x, c.y - 22, '+' + it.name, rcol(it.val)); SFX.pick(); if (it.val >= 15) burst(c.x, c.y - 14, ['#f2c94c', '#fff'], 14, 60); }
+    else { toast('Junk slots full! Sell something first.', '#ff7a6a'); groundItems.push({id: loot.item, x: player.x + 8, y: player.y + 4, ph: rnd() * 6, cd: 2}); SFX.nope(); }
+  }
+  save();
+}
+function handleBuild(dt){
+  const building = started && !panelKind && target && target.kind === 'lot' && K.KeyE;
+  if (!building){ if (player.act === 'build') player.act = null; return; }
+  const job = S.job, l = target.obj, J = JOBS[job.type];
+  if (!job.started){
+    if (!hasAll(job)) return;
+    for (const [id, n] of Object.entries(J.mats)) removeItem(id, n);
+    job.started = true; l.state = 'building'; l.style = job.type; l.progress = 0;
+    toast(`Construction started on the ${J.name}!`, '#f2c94c');
+  }
+  if (player.act !== 'build'){ player.act = 'build'; player.actT = 0; }
+  player.dir = player.y > l.y * T + 80 ? 1 : player.x < l.x * T ? 3 : player.x > l.x * T + 64 ? 2 : 0;
+  const before = Math.floor(player.actT * 14 / Math.PI);
+  player.actT += dt;
+  if (Math.floor(player.actT * 14 / Math.PI) !== before && Math.sin(player.actT * 14) < 0){
+    SFX.hammer(); const R = houseRect(l); burst(R.x + rnd() * R.w, R.y + R.h - rnd() * 30, ['#d8b878', '#c8a464', '#9a9a9a'], 4, 30);
+  }
+  l.progress = Math.min(1, l.progress + dt / J.time);
+  if (l.progress >= 1) completeJob(l);
+}
+function completeJob(l){
+  const job = S.job, J = JOBS[job.type];
+  l.state = 'built'; l.progress = 1; l.owner = job.client; player.act = null;
+  const R = houseRect(l);
+  if (player.x > R.x - 5 && player.x < R.x + R.w + 5 && player.y > R.y - 2 && player.y < R.y + R.h + 4){ player.x = l.x * T + 32; player.y = l.y * T + 118; }
+  S.completed++; S.job = null; S.offers = [];
+  burst(R.x + R.w / 2, R.y + R.h / 2, ['#f2c94c', '#e84393', '#4a8ae0', '#8ff06a', '#fff'], 40, 90);
+  if (job.type === 'home'){
+    S.won = true; SFX.win(); addFloat(R.x + R.w / 2, R.y - 6, 'HOME SWEET HOME!', '#f2c94c');
+    $('winstats').innerHTML = `Houses built: ${S.completed}<br>Trash cans searched: ${S.stats.searched}<br>Junk found: ${S.stats.found}<br>Total earned: ${fmt(S.stats.earned)}`;
+    setTimeout(() => { $('win').style.display = 'flex'; }, 900);
+  } else {
+    addMoney(job.pay); SFX.done();
+    addFloat(R.x + R.w / 2, R.y - 6, '+' + fmt(job.pay), '#8ff06a'); addFloat(R.x + R.w / 2, R.y + 4, 'THANK YOU!', '#fff');
+    toast(`${job.client} loves their new ${J.name}! You earned ${fmt(job.pay)}.`, '#8ff06a');
+    if (S.completed === 2) toast('New job tier unlocked: cabins & cottages!', '#f2c94c');
+    if (S.completed === 4) toast('Big jobs unlocked... and you can build YOUR OWN HOME!', '#f2c94c');
+  }
+  invDirty = true; save();
+}
+
+// ================= PANELS =================
+const panel = $('panel');
+function openPanel(kind){ panelKind = kind; panelMsg = ''; player.act = null; player.moving = false; renderPanel(); panel.classList.remove('hidden'); SFX.click(); }
+function closePanel(){ panel.classList.add('hidden'); panelKind = null; if (npcTalk){ npcTalk.state = 'walk'; npcTalk = null; } npcView = null; }
+function openNPC(n){
+  npcTalk = n; npcView = null; n.state = 'talk';
+  n.dir = Math.abs(player.x - n.x) > Math.abs(player.y - n.y) ? (player.x < n.x ? 2 : 3) : (player.y < n.y ? 1 : 0);
+  openPanel('npc');
+}
+const img = (id, cls = 'ic') => `<img class="${cls}" src="${ICONURL[id]}">`;
+const junkList = () => Object.keys(S.inv).filter(k => ITEMS[k].cat === 'junk');
+const npcMult = (n, id) => 0.5 + hash(n.id + ':' + id) * 1.2;
+const npcRefuses = (n, id) => hash('r' + n.id + id) < 0.2;
+const pawnPrice = id => Math.max(0.05, round2(ITEMS[id].val * 0.6));
+function npcOffer(n, id){ return Math.max(0.05, round2(ITEMS[id].val * npcMult(n, id))); }
+
+function renderPanel(){
+  let title = '', sub = '', body = '';
+  if (panelKind === 'npc'){
+    const n = npcTalk;
+    title = `${n.name} <small style="color:#b8b0d0;font-size:9px">the ${n.role}</small>`;
+    if (n.grumpy){ sub = `"${n.greet}"`; body = `<div class="pmsg">"${pick(['Get away from me!', 'Not interested. Beat it.', 'Do I look like a bank?'])}"</div><button class="btn g" data-a="close">LEAVE</button>`; }
+    else if (npcView !== null){
+      const gid = n.goods[npcView], g = ITEMS[gid];
+      sub = `Trade for their ${g.name} (worth ~${fmt(g.val)}). What will you offer?`;
+      const mine = junkList();
+      body = mine.length ? mine.map(id => `<div class="row">${img(id)}<div class="nm">${ITEMS[id].name} <small>x${S.inv[id]}</small></div><button class="btn b" data-a="offer" data-v="${id}">OFFER</button></div>`).join('') : '<div class="pmsg">You have no junk to offer.</div>';
+      body += `<div style="margin-top:10px"><button class="btn g" data-a="back">BACK</button></div>`;
+    } else {
+      sub = `"${n.greet}" &nbsp;·&nbsp; Cash on hand: ${fmt(n.cash)}`;
+      body += `<div class="row"><div class="nm">Ask for spare change<small>Maybe they're feeling generous.</small></div><button class="btn o" data-a="beg">ASK</button></div>`;
+      body += `<div class="sec">SELL YOUR JUNK</div>`;
+      const mine = junkList();
+      if (!mine.length) body += '<div class="psub">You have nothing to sell. Go dig through some trash!</div>';
+      for (const id of mine){
+        const ref = npcRefuses(n, id), off = npcOffer(n, id);
+        body += `<div class="row">${img(id)}<div class="nm">${ITEMS[id].name} <small>x${S.inv[id]} · worth ~${fmt(ITEMS[id].val)}</small></div>` +
+          (ref ? '<span style="color:#ff7a6a;font-size:8px">"NAH."</span>' : `<button class="btn" data-a="sell" data-v="${id}" ${off > n.cash ? 'disabled' : ''}>SELL ${fmt(off)}</button>`) + '</div>';
+      }
+      body += `<div class="sec">THEY HAVE</div>`;
+      if (!n.goods.length) body += '<div class="psub">Nothing left to trade.</div>';
+      n.goods.forEach((gid, i) => { body += `<div class="row">${img(gid)}<div class="nm">${ITEMS[gid].name}<small>worth ~${fmt(ITEMS[gid].val)}</small></div><button class="btn b" data-a="tradeview" data-v="${i}">TRADE</button></div>`; });
+    }
+  } else if (panelKind === 'pawn'){
+    title = 'PAWN SHOP'; sub = '"I pay 60% of what it\'s worth. No haggling, no questions."';
+    const mine = junkList();
+    if (!mine.length) body = '<div class="psub">You got nothing I want. Come back with junk.</div>';
+    for (const id of mine) body += `<div class="row">${img(id)}<div class="nm">${ITEMS[id].name} <small>x${S.inv[id]}</small></div><button class="btn" data-a="pawn" data-v="${id}">SELL ${fmt(pawnPrice(id))}</button>${S.inv[id] > 1 ? `<button class="btn" data-a="pawnall" data-v="${id}">ALL</button>` : ''}</div>`;
+    if (mine.length){ const tot = mine.reduce((a, id) => a + pawnPrice(id) * S.inv[id], 0); body += `<div style="margin-top:12px"><button class="btn o" data-a="pawnevery">SELL EVERYTHING FOR ${fmt(round2(tot))}</button></div>`; }
+  } else if (panelKind === 'depot'){
+    title = 'HOME DEPOT'; sub = 'Building materials & tools. Your money: ' + fmt(S.money);
+    if (S.job && !S.job.started){
+      const miss = jobNeeds(S.job).filter(x => x.have < x.n);
+      const cost = round2(miss.reduce((a, x) => a + (x.n - x.have) * ITEMS[x.id].price, 0));
+      body += miss.length ? `<div class="pmsg">Your job (${JOBS[S.job.type].name}) still needs ${fmt(cost)} of supplies.<br><button class="btn o" style="margin-top:8px" data-a="buyjob" ${cost > S.money ? 'disabled' : ''}>BUY EVERYTHING FOR JOB (${fmt(cost)})</button></div>`
+        : `<div class="pmsg">You have everything for the ${JOBS[S.job.type].name}! Head to LOT ${S.job.lot}.</div>`;
+    }
+    const need = {}; if (S.job && !S.job.started) for (const x of jobNeeds(S.job)) need[x.id] = x.n;
+    for (const id of SHOP_IDS){
+      const it = ITEMS[id], have = S.inv[id] || 0, tool = it.cat === 'tool';
+      body += `<div class="row">${img(id)}<div class="nm">${it.name}<small>${fmt(it.price)}${tool ? ' · tool' : ''} · have ${have}${need[id] ? ` · <span style="color:${have >= need[id] ? '#8ff06a' : '#f2c94c'}">job needs ${need[id]}</span>` : ''}</small></div>` +
+        (tool ? `<button class="btn o" data-a="buy" data-v="${id}:1" ${have || it.price > S.money ? 'disabled' : ''}>${have ? 'OWNED' : 'BUY'}</button>`
+              : `<button class="btn o" data-a="buy" data-v="${id}:1" ${it.price > S.money ? 'disabled' : ''}>BUY 1</button><button class="btn o" data-a="buy" data-v="${id}:5" ${it.price * 5 > S.money ? 'disabled' : ''}>BUY 5</button>`) + '</div>';
+    }
+  } else if (panelKind === 'job'){
+    title = 'JOB CENTER'; sub = `Houses built: ${S.completed}. Bigger jobs unlock as you build more.`;
+    if (S.job){
+      const J = JOBS[S.job.type];
+      body += `<div class="job"><div class="jt">CURRENT: ${J.name}</div>Client: ${S.job.client} · Lot ${S.job.lot} · Pays ${J.pay ? fmt(S.job.pay) : 'a home of your own'}${matsHTML(S.job)}` +
+        (S.job.started ? '<div class="psub">Construction underway. Go finish it!</div>' : `<button class="btn r" data-a="abandon">QUIT JOB</button>`) + '</div>';
+    } else {
+      if (!S.offers.length) genOffers();
+      if (!S.offers.length) body += '<div class="pmsg">No empty lots left in the city. You built it all. Legend.</div>';
+      S.offers.forEach((o, i) => {
+        const J = JOBS[o.type], cost = Object.entries(J.mats).reduce((a, [id, n]) => a + ITEMS[id].price * n, 0);
+        body += `<div class="job"><div class="jt">${J.name}${o.type === 'home' ? ' ★' : ''}</div>${o.type === 'home' ? 'Build a place of your own. No pay, just pride.' : `Client: ${o.client} · Pays <span style="color:#8ff06a">${fmt(o.pay)}</span>`}<br><small style="color:#a8a0c0">Materials cost about ${fmt(cost)} · ${J.tools.map(t => ITEMS[t].name).join(' + ')} required</small>${matsHTML(o)}<button class="btn o" data-a="take" data-v="${i}">TAKE JOB</button></div>`;
+      });
+    }
+  }
+  panel.innerHTML = `<div class="ptitle"><span>${title}</span><button class="x" data-a="close">X</button></div>${sub ? `<div class="psub">${sub}</div>` : ''}${panelMsg ? `<div class="pmsg">${panelMsg}</div>` : ''}${body}`;
+}
+function matsHTML(job){
+  return '<div class="mats">' + jobNeeds(job).map(x => `<span class="mat ${x.have >= x.n ? 'ok' : 'no'}"><img src="${ICONURL[x.id]}">${x.tool ? ITEMS[x.id].name : x.n + ' ' + ITEMS[x.id].name}</span>`).join('') + '</div>';
+}
+function genOffers(){
+  const free = lots.filter(l => l.state === 'empty');
+  S.offers = [];
+  if (!free.length) return;
+  const tier = S.completed >= 4 ? 2 : S.completed >= 2 ? 1 : 0;
+  const pool = Object.keys(JOBS).filter(k => k !== 'home' && JOBS[k].tier <= tier);
+  const top = pool.filter(k => JOBS[k].tier === tier);
+  for (let i = 0; i < 3; i++){
+    const type = rnd() < 0.65 ? pick(top) : pick(pool);
+    S.offers.push({type, client: pick(CLIENTS), pay: Math.round(JOBS[type].pay * (0.9 + rnd() * 0.25) / 5) * 5});
+  }
+  if (S.completed >= 4 && !S.won) S.offers.unshift({type: 'home', client: 'You', pay: 0});
+}
+panel.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if (!b || b.disabled) return;
+  const a = b.dataset.a, v = b.dataset.v; panelMsg = '';
+  const n = npcTalk;
+  if (a === 'close'){ closePanel(); return; }
+  if (a === 'beg'){
+    if (time - n.begT < 60){ panelMsg = `"I already helped you, pal."`; SFX.nope(); }
+    else {
+      n.begT = time;
+      if (rnd() < n.gen && n.cash > 0.25){ const amt = Math.min(n.cash, pick([0.25, 0.5, 1, 1, 2, 5])); n.cash = round2(n.cash - amt); addMoney(amt); panelMsg = `"${pick(['Here, take this.', 'Get yourself something to eat.', 'Hang in there, friend.'])}" <span style="color:#8ff06a">+${fmt(amt)}</span>`; SFX.coin(); }
+      else { panelMsg = `"${pick(['Sorry, I only have cards.', 'Not today, buddy.', 'I got nothing, sorry.'])}"`; SFX.nope(); }
+    }
+  } else if (a === 'sell'){
+    const off = npcOffer(n, v);
+    if (off > n.cash){ panelMsg = `"I can't afford that."`; }
+    else { removeItem(v); n.cash = round2(n.cash - off); addMoney(off); n.goods.length < 3 && rnd() < 0.3 && n.goods.push(v); panelMsg = `"${pick(['Deal!', 'Sweet, I\'ve always wanted one.', 'Eh, why not.', 'For my collection!'])}" <span style="color:#8ff06a">+${fmt(off)}</span>`; SFX.coin(); }
+  } else if (a === 'tradeview'){ npcView = +v; }
+  else if (a === 'back'){ npcView = null; }
+  else if (a === 'offer'){
+    const gid = n.goods[npcView], mine = v;
+    const ok = !npcRefuses(n, mine) && ITEMS[mine].val * npcMult(n, mine) >= ITEMS[gid].val * 0.85;
+    if (!ok){ panelMsg = `"${ITEMS[mine].name} for my ${ITEMS[gid].name}? No way."`; SFX.nope(); }
+    else if (S.inv[mine] > 1 && !S.inv[gid] && junkTypes() >= MAX_JUNK){ panelMsg = 'Your junk slots are full!'; SFX.nope(); }
+    else { removeItem(mine); addItem(gid); n.goods.splice(npcView, 1); n.goods.push(mine); npcView = null; panelMsg = `"You got yourself a deal." You got the <span style="color:${rcol(ITEMS[gid].val)}">${ITEMS[gid].name}</span>!`; SFX.buy(); }
+  } else if (a === 'pawn'){ const p = pawnPrice(v); removeItem(v); addMoney(p); panelMsg = `Sold ${ITEMS[v].name} for ${fmt(p)}.`; SFX.coin(); }
+  else if (a === 'pawnall'){ const c = S.inv[v], p = round2(pawnPrice(v) * c); removeItem(v, c); addMoney(p); panelMsg = `Sold ${c}x ${ITEMS[v].name} for ${fmt(p)}.`; SFX.coin(); }
+  else if (a === 'pawnevery'){ let tot = 0; for (const id of junkList()){ tot += pawnPrice(id) * S.inv[id]; removeItem(id, S.inv[id]); } addMoney(round2(tot)); panelMsg = `Sold everything for ${fmt(round2(tot))}.`; SFX.coin(); }
+  else if (a === 'buy'){
+    const [id, q] = v.split(':'), cost = ITEMS[id].price * +q;
+    if (cost > S.money){ panelMsg = 'Not enough money.'; SFX.nope(); }
+    else { addMoney(-cost); addItem(id, +q); panelMsg = `Bought ${q}x ${ITEMS[id].name}.`; SFX.buy(); }
+  } else if (a === 'buyjob'){
+    const miss = jobNeeds(S.job).filter(x => x.have < x.n);
+    const cost = round2(miss.reduce((s, x) => s + (x.n - x.have) * ITEMS[x.id].price, 0));
+    if (cost > S.money){ panelMsg = 'Not enough money.'; SFX.nope(); }
+    else { addMoney(-cost); for (const x of miss) addItem(x.id, x.n - x.have); panelMsg = `Bought everything for ${fmt(cost)}. Now go build!`; SFX.buy(); }
+  } else if (a === 'take'){
+    const o = S.offers[+v], l = lots.find(l => l.state === 'empty');
+    if (!l){ panelMsg = 'No empty lots!'; }
+    else { S.job = {type: o.type, client: o.client, pay: o.pay, lot: l.id, started: false}; l.state = 'job'; panelMsg = `Job accepted! Build it at LOT ${l.id} (orange on the map).`; SFX.buy(); invDirty = true; }
+  } else if (a === 'abandon'){
+    const l = lots.find(l => l.id === S.job.lot); if (l){ l.state = 'empty'; l.progress = 0; l.style = null; }
+    S.job = null; S.offers = []; panelMsg = 'You quit the job.'; invDirty = true;
+  }
+  renderPanel(); save();
+});
+
+// ================= INPUT =================
+const K = {};
+addEventListener('keydown', e => {
+  audioInit();
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  K[e.code] = true;
+  if (!started){ if (e.code === 'Enter') startGame(hasSave()); return; }
+  if (e.repeat) return;
+  if (e.code === 'KeyE') interact();
+  if (e.code === 'Escape'){ closePanel(); toggleBigMap(false); }
+  if (e.code === 'KeyM') toggleBigMap();
+  const dm = /^Digit(\d)$/.exec(e.code);
+  if (dm && !panelKind) useSlot((+dm[1] + 9) % 10);
+});
+addEventListener('keyup', e => { K[e.code] = false; });
+addEventListener('blur', () => { for (const k in K) K[k] = false; });
+
+// ================= LOOP =================
+const cvs = $('game'), ctx = cvs.getContext('2d');
+let VW = 400, VH = 225, SCALE = 3;
+function resize(){
+  SCALE = Math.max(3, Math.round(innerHeight / 210), Math.ceil(innerWidth / (WPX - 40)));
+  VW = Math.ceil(innerWidth / SCALE); VH = Math.ceil(innerHeight / SCALE);
+  cvs.width = VW; cvs.height = VH; cvs.style.width = VW * SCALE + 'px'; cvs.style.height = VH * SCALE + 'px';
+  ctx.imageSmoothingEnabled = false;
+}
+addEventListener('resize', resize);
+
+function blockedAt(x, y){
+  for (const [px, py] of [[x - 4, y - 3], [x + 4, y - 3], [x - 4, y], [x + 4, y]]){
+    const tx = Math.floor(px / T), ty = Math.floor(py / T);
+    if (tx < 0 || ty < 0 || tx >= MW || ty >= MH || solid[ty * MW + tx]) return true;
+    for (const l of lots) if (l.state === 'built'){ const R = houseRect(l); if (px >= R.x && px < R.x + R.w && py >= R.y && py < R.y + R.h) return true; }
+    for (const c of cars){ const R = carRect(c); if (px >= R.x && px < R.x + R.w && py >= R.y && py < R.y + R.h) return true; }
+  }
+  return false;
+}
+function updatePlayer(dt){
+  const p = player;
+  if (arrestT > 0){ arrestT -= dt; p.moving = false; p.act = null; return; }
+  // jaywalking: standing in a street (not on a crosswalk) for a moment
+  const ft = tAt(Math.floor(p.x / T), Math.floor(p.y / T));
+  if (ft === ROAD && (vStrip[Math.floor(p.x / T)] >= 0 || hStrip[Math.floor(p.y / T)] >= 0)){ jayT += dt; if (jayT > 0.5 && jayT - dt <= 0.5) reportCrime('jaywalking'); }
+  else jayT = 0;
+  if (p.act){ p.moving = false; if (p.act === 'search'){ p.actT += dt; if ((p.actT * 12 | 0) !== ((p.actT - dt) * 12 | 0)) SFX.rummage(); if (p.actT >= 0.9) finishSearch(); } return; }
+  if (!started || panelKind){ p.moving = false; return; }
+  let mx = 0, my = 0;
+  if (K.KeyA || K.ArrowLeft) mx--; if (K.KeyD || K.ArrowRight) mx++;
+  if (K.KeyW || K.ArrowUp) my--; if (K.KeyS || K.ArrowDown) my++;
+  p.running = !!(K.ShiftLeft || K.ShiftRight);
+  if (mx || my){
+    const sp = p.running ? 96 : 52, len = Math.hypot(mx, my), vx = mx / len * sp * dt, vy = my / len * sp * dt;
+    if (!blockedAt(p.x + vx, p.y)) p.x += vx;
+    if (!blockedAt(p.x, p.y + vy)) p.y += vy;
+    p.moving = true; p.phase += dt * (p.running ? 15 : 10);
+    p.dir = mx ? (mx < 0 ? 2 : 3) : (my < 0 ? 1 : 0);
+    if (p.running){ p.dust -= dt; if (p.dust <= 0){ p.dust = 0.08; particles.push({x: p.x - mx * 4 + (rnd() - .5) * 4, y: p.y - 1, vx: -mx * 12, vy: -8 - rnd() * 8, g: 0, life: 0.35, col: pick(['#c8c4b8', '#a8a49a']), s: 2}); } }
+  } else { p.moving = false; p.phase = 0; }
+}
+let itemSpawnT = 0, saveT = 0, fullWarnT = 0;
+function update(dt){
+  time += dt;
+  if (started) handleBuild(dt);
+  updatePlayer(dt);
+  for (const n of npcs) updateNPC(n, dt);
+  for (const c of cars) updateCar(c, dt);
+  for (const c of cans){ if (c.cool > 0) c.cool -= dt; if (c.shake > 0) c.shake -= dt; }
+  // ground items
+  itemSpawnT -= dt;
+  if (itemSpawnT <= 0 && groundItems.length < 14){
+    itemSpawnT = 4;
+    const idx = itemTiles[Math.floor(rnd() * itemTiles.length)];
+    groundItems.push({id: weightedPick(JUNK_IDS, id => ITEMS[id].w), x: (idx % MW) * T + 4 + rnd() * 8, y: ((idx / MW) | 0) * T + 8 + rnd() * 6, ph: rnd() * 6, cd: 0});
+  }
+  fullWarnT -= dt;
+  for (let i = groundItems.length - 1; i >= 0; i--){
+    const it = groundItems[i]; if (it.cd > 0){ it.cd -= dt; continue; }
+    if (started && Math.hypot(it.x - player.x, it.y - player.y) < 10){
+      if (addItem(it.id)){ groundItems.splice(i, 1); S.stats.found++; addFloat(it.x, it.y - 14, '+' + ITEMS[it.id].name, rcol(ITEMS[it.id].val)); toast(`Picked up: <span style="color:${rcol(ITEMS[it.id].val)}">${ITEMS[it.id].name}</span>`); SFX.pick(); }
+      else if (fullWarnT <= 0){ fullWarnT = 3; toast('Junk slots full! Sell something first.', '#ff7a6a'); }
+    }
+  }
+  for (let i = particles.length - 1; i >= 0; i--){ const q = particles[i]; q.life -= dt; q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.life <= 0) particles.splice(i, 1); }
+  for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.life -= dt; f.y -= 18 * dt; if (f.life <= 0) floats.splice(i, 1); }
+  // camera
+  // camera locked to the player (no easing, so turning around doesn't swing the screen)
+  cam.x = clamp(Math.round(player.x) - (VW >> 1), 0, WPX - VW);
+  cam.y = clamp(Math.round(player.y) - 8 - (VH >> 1), 0, Math.max(0, HPX - VH));
+  // hud
+  if (started){
+    target = panelKind ? null : findTarget();
+    const pt = $('prompt'), txt = player.act === 'search' ? 'Rummaging...' : promptText(target);
+    if (txt){ if (pt.innerHTML !== txt) pt.innerHTML = txt; pt.style.display = 'block'; } else pt.style.display = 'none';
+    if (S.money !== lastMoney){ lastMoney = S.money; $('moneytxt').textContent = fmt(S.money); if (panelKind === 'depot') renderPanel(); }
+    if (invDirty) renderInventory();
+    saveT += dt; if (saveT > 10){ saveT = 0; save(); }
+  }
+}
+function render(){
+  const cx = Math.round(cam.x), cy = Math.round(cam.y);
+  ctx.fillStyle = '#0d0d12'; ctx.fillRect(0, 0, VW, VH);
+  ctx.drawImage(mapC, cx, cy, Math.min(VW, WPX - cx), Math.min(VH, HPX - cy), 0, 0, Math.min(VW, WPX - cx), Math.min(VH, HPX - cy));
+  ctx.save(); ctx.translate(-cx, -cy);
+  const inView = (x, y, m = 48) => x > cx - m && x < cx + VW + m && y > cy - m && y < cy + VH + m + 30;
+  for (const l of lots) if (inView(l.x * T + 32, l.y * T + 64, 100)) drawLot(ctx, l);
+  const ents = [];
+  for (const p of props) if (inView(p.x, p.y)) ents.push({y: p.y, d: () => drawProp(ctx, p)});
+  for (const c of cans) if (inView(c.x, c.y)) ents.push({y: c.y, d: () => drawCan(ctx, c)});
+  for (const it of groundItems) if (inView(it.x, it.y)) ents.push({y: it.y, d: () => drawGroundItem(ctx, it)});
+  for (const n of npcs) if (inView(n.x, n.y)) ents.push({y: n.y, d: () => drawChar(ctx, n)});
+  for (const c of cars){ const [x, y] = carXY(c); if (inView(x, y)) ents.push({y: y + (c.horiz ? 6 : 12), d: () => drawCar(ctx, c)}); }
+  ents.push({y: player.y + 0.1, d: () => drawChar(ctx, player)});
+  ents.sort((a, b) => a.y - b.y);
+  for (const e of ents) e.d();
+  for (const q of particles){ ctx.globalAlpha = Math.min(1, q.life * 3); ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), q.s, q.s); }
+  ctx.globalAlpha = 1;
+  // target arrow
+  if (started && target && !player.act){
+    const bob = Math.round(Math.sin(time * 6) * 2), ax = Math.round(target.x), ay = Math.round(target.y) - (target.kind === 'npc' ? 26 : target.kind === 'trash' ? 24 : target.kind === 'door' ? 30 : 0) + bob;
+    if (target.kind !== 'lot'){ ctx.fillStyle = '#000'; ctx.fillRect(ax - 4, ay - 1, 9, 5); ctx.fillStyle = '#fff'; ctx.fillRect(ax - 3, ay, 7, 1); ctx.fillRect(ax - 2, ay + 1, 5, 1); ctx.fillRect(ax - 1, ay + 2, 3, 1); ctx.fillRect(ax, ay + 3, 1, 1); }
+  }
+  // job lot beacon
+  if (S.job){
+    const l = lots.find(l => l.id === S.job.lot), bx = l.x * T + 49, by = l.y * T + 84 + Math.round(Math.sin(time * 5) * 2);
+    ctx.fillStyle = '#000'; ctx.fillRect(bx - 5, by - 1, 11, 6); ctx.fillStyle = '#f26f21'; ctx.fillRect(bx - 4, by, 9, 1); ctx.fillRect(bx - 3, by + 1, 7, 1); ctx.fillRect(bx - 2, by + 2, 5, 1); ctx.fillRect(bx - 1, by + 3, 3, 1);
+    if (S.job.started || player.act === 'build'){
+      const R = houseRect({x: l.x, y: l.y, style: S.job.type}), w = 40, x0 = R.x + (R.w >> 1) - 20, y0 = R.y - 12;
+      ctx.fillStyle = '#000'; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 6); ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x0, y0, w, 4); ctx.fillStyle = '#8ff06a'; ctx.fillRect(x0, y0, Math.round(w * l.progress), 4);
+    }
+  }
+  for (const f of floats){ ctx.globalAlpha = Math.min(1, f.life * 2); drawText(ctx, f.text, Math.round(f.x), Math.round(f.y), f.col); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (started) drawCityMap();
+}
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); render();
+  requestAnimationFrame(frame);
+}
+
+// ================= START =================
+function startGame(cont){
+  audioInit();
+  for (const l of lots){ l.state = 'empty'; l.style = null; l.owner = null; l.progress = 0; }
+  if (!(cont && load())){ S = newState(); }
+  // keep the lot tied to an unfinished job claimed
+  if (S.job){ const l = lots.find(l => l.id === S.job.lot); if (l && l.state === 'empty') l.state = 'job'; }
+  started = true; invDirty = true; lastMoney = -1;
+  $('title').style.display = 'none'; $('hud').style.display = 'block';
+  toast(cont ? 'Welcome back to the streets.' : 'Rise and shine. Time to dig through some trash.', '#f2c94c');
+  save();
+}
+// New Game rolls a brand-new city: store a fresh seed and reload straight into play
+$('btnNew').onclick = () => {
+  try {
+    localStorage.setItem('citylife_seed', 1 + Math.floor(Math.random() * 1e9));
+    localStorage.removeItem(KEY);
+    sessionStorage.setItem('citylife_autostart', '1');
+    location.reload();
+  } catch (e) { startGame(false); }
+};
+$('btnCont').onclick = () => startGame(true);
+$('btnKeep').onclick = () => { $('win').style.display = 'none'; };
+if (hasSave()) $('btnCont').style.display = '';
+
+genMap(); renderStatic();
+player.x = START.x; player.y = START.y;
+let autostart = false;
+try { autostart = sessionStorage.getItem('citylife_autostart') === '1'; sessionStorage.removeItem('citylife_autostart'); } catch (e) {}
+if (autostart) setTimeout(() => startGame(false), 0);
+for (let i = 0; i < 90; i++) npcs.push(makeNPC(i));
+for (let i = 0; i < 6; i++) npcs.push(makeCop(i));
+{ const dd = doors.find(d => d.kind === 'depot'); const clerk = makeNPC(99); Object.assign(clerk, {name: 'Dan', role: 'Home Depot Associate', clerk: true, state: 'stand', x: dd.x + 30, y: dd.y + 2, dir: 0});
+  clerk.look = Object.assign(randLook(), {shirt: '#f26f21', hairStyle: 'short', tie: null}); npcs.push(clerk); }
+spawnCars();
+resize();
+cam.x = clamp(player.x - VW / 2, 0, WPX - VW); cam.y = clamp(player.y - VH / 2, 0, Math.max(0, HPX - VH));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
